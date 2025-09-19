@@ -6,7 +6,7 @@
 
 ---
 
-### **## 1. Goals and Background Context**
+## 1. Goals and Background Context
 
 #### **1.1 Goals**
 * **Business Goals**:
@@ -26,7 +26,7 @@ Currently, KT's Azure developers are wasting unnecessary time and resources due 
 
 ---
 
-### **## 2. Requirements**
+## 2. Requirements
 
 #### **2.1 Functional Requirements**
 * **FR1**: Users must be able to authenticate using their Microsoft company account via OAuth 2.0 through the `login` tool.
@@ -45,7 +45,7 @@ Currently, KT's Azure developers are wasting unnecessary time and resources due 
 
 ---
 
-### **## 3. Technical Assumptions**
+## 3. Technical Assumptions
 
 #### **3.1 Repository Structure**
 * **Monorepo**: AZEBAL server and all related tools are **managed within a single repository (Monorepo)**. This facilitates code sharing, dependency management, and integrated build/deployment during the initial development phase.
@@ -59,7 +59,7 @@ Currently, KT's Azure developers are wasting unnecessary time and resources due 
 
 ---
 
-### **## 4. Epic List**
+## 4. Epic List
 
 AZEBAL MVP development consists of two sequential epics considering technical dependencies and value delivery stages.
 
@@ -71,7 +71,7 @@ AZEBAL MVP development consists of two sequential epics considering technical de
 
 ---
 
-### **## 5. Epic 1: Security Authentication and Azure Session Foundation**
+## 5. Epic 1: Security Authentication and Azure Session Foundation
 
 > **Epic Goal**: Establish a technical foundation where users can securely authenticate to AZEBAL with their MS account within the IDE, and AZEBAL can successfully call Azure APIs on behalf of users based on this authentication information. The completion of this epic means resolving the project's biggest technical risk: the 'authentication and permission integration' problem.
 
@@ -144,7 +144,7 @@ sequenceDiagram
 
 ---
 
-### **## 6. Epic 2: Real-time Error Analysis Engine Implementation**
+## 6. Epic 2: Real-time Error Analysis Engine Implementation
 
 > **Epic Goal**: Implement the `debug_error` tool that autonomously analyzes errors and provides complete solutions in a single response on the authentication foundation built in Epic 1, receiving a single request from the IDE AI agent.
 
@@ -197,7 +197,7 @@ sequenceDiagram
 
 ---
 
-### **## 7. Checklist Results Report**
+## 7. Checklist Results Report
 
 **Executive Summary:**
 This AZEBAL PRD has **very high overall completeness (Overall Readiness: High)** based on PM checklist review results, with clear MVP scope and specific requirements, making it **Ready** to begin the next step of architecture design. A few minor improvements were identified, but they can be sufficiently discussed and detailed during the architecture design process.
@@ -227,7 +227,7 @@ This AZEBAL PRD has **very high overall completeness (Overall Readiness: High)**
 
 ---
 
-### **## 8. Next Steps**
+## 8. Next Steps
 
 #### **Architect Prompt**
 > Hello, Architect (Winston).
