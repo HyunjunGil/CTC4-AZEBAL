@@ -114,3 +114,4 @@ temp/
 web-bundles/
 
 *.pyc
+.mcp.json

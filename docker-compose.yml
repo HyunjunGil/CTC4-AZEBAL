@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  azebal-mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: azebal-mcp-server
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app
+      - PYTHONUNBUFFERED=1
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8000
+    volumes:
+      # Mount source code for development (optional)
+      - ./src:/app/src:ro
+    networks:
+      - azebal-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "src/health_check.py", "--host", "localhost", "--port", "8000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  azebal-network:
+    driver: bridge
+
+# For development - uncomment to add Redis and MariaDB
+# volumes:
+#   redis-data:
+#   mariadb-data:
+
+# services:
+#   redis:
+#     image: redis:7-alpine
+#     container_name: azebal-redis
+#     ports:
+#       - "6379:6379"
+#     volumes:
+#       - redis-data:/data
+#     networks:
+#       - azebal-network
+#     restart: unless-stopped
+
+#   mariadb:
+#     image: mariadb:10
+#     container_name: azebal-mariadb
+#     ports:
+#       - "3306:3306"
+#     environment:
+#       - MYSQL_ROOT_PASSWORD=password
+#       - MYSQL_DATABASE=azebal_dev
+#       - MYSQL_USER=azebal
+#       - MYSQL_PASSWORD=password
+#     volumes:
+#       - mariadb-data:/var/lib/mysql
+#     networks:
+#       - azebal-network
+#     restart: unless-stopped

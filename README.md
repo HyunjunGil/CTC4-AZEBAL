@@ -107,10 +107,10 @@ azebal/
 5. **Run the MCP server**
    ```bash
    # Run with stdio transport (default)
-   python -m src.cli --transport stdio
+   python run_mcp_server.py
    
-   # Or run with SSE transport
-   python -m src.cli --transport sse --host localhost --port 8000
+   # Or run with SSE/Streamable-HTTP transport
+   python run_mcp_server_sse.py
    ```
 
 ### Development Setup
@@ -188,22 +188,36 @@ AZEBAL integrates seamlessly with Cursor IDE through the Model Context Protocol 
    - **Windows**: `%APPDATA%\Cursor\mcp.json`
 
 2. **Add AZEBAL server configuration**:
+
+   **Option A: stdio Transport (Recommended for Cursor)**
    ```json
    {
      "mcpServers": {
        "azebal": {
          "command": "python",
-         "args": [
-           "-m", "src.cli", 
-           "--transport", "stdio"
-         ],
+         "args": ["/path/to/your/AZEBAL/run_mcp_server.py"],
          "cwd": "/path/to/your/AZEBAL"
        }
      }
    }
    ```
 
-   **Important**: Replace `/path/to/your/AZEBAL` with the actual absolute path to your AZEBAL project directory.
+   **Option B: HTTP Transport (Streamable-HTTP)**
+   ```json
+   {
+     "mcpServers": {
+       "azebal": {
+         "type": "http",
+         "url": "http://localhost:8000/azebal/mcp",
+         "headers": {}
+       }
+     }
+   }
+   ```
+
+   **Important**: 
+   - Replace `/path/to/your/AZEBAL` with the actual absolute path to your AZEBAL project directory
+   - For HTTP transport, ensure the server is running with `python run_mcp_server_sse.py`
 
 #### Step 2: Restart Cursor
 
@@ -236,13 +250,41 @@ AZEBAL supports two MCP transport methods:
 
 1. **stdio** (recommended for Cursor): Direct process communication
    ```bash
-   python -m src.cli --transport stdio
+   python run_mcp_server.py
    ```
+   - **URL**: Process-based communication (no URL needed)
+   - **Use Case**: IDE integrations like Cursor
+   - **Configuration**: Command-based in `mcp.json`
 
-2. **SSE** (for web-based integrations): Server-Sent Events over HTTP
+2. **Streamable-HTTP** (for web-based integrations): HTTP with streamable transport
    ```bash
-   python -m src.cli --transport sse --host localhost --port 8000
+   python run_mcp_server_sse.py
    ```
+   - **URL**: `http://localhost:8000/azebal/mcp`
+   - **Use Case**: Web applications, Docker deployments
+   - **Configuration**: HTTP-based in `mcp.json`
+
+### Docker Deployment
+
+For production or containerized deployments:
+
+```bash
+# Build Docker image
+docker build -t azebal-mcp:latest .
+
+# Run container
+docker run -d --name azebal-mcp-server \
+  -p 8000:8000 \
+  -e MCP_HOST=0.0.0.0 \
+  -e MCP_PORT=8000 \
+  azebal-mcp:latest
+
+# Test connection
+curl -X POST http://localhost:8000/azebal/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test-client", "version": "1.0.0"}}}'
+```
 
 ### Troubleshooting MCP Connection
 
@@ -253,9 +295,12 @@ If AZEBAL doesn't appear in Cursor or you encounter connection issues:
    # Ensure you're in the correct conda environment
    conda activate azebal
    
-   # Test the server manually
+   # Test the server manually (stdio)
    cd /path/to/AZEBAL
-   python -m src.cli --transport stdio
+   python run_mcp_server.py
+   
+   # Or test HTTP server
+   python run_mcp_server_sse.py
    ```
 
 2. **Check File Paths**:
@@ -272,8 +317,14 @@ If AZEBAL doesn't appear in Cursor or you encounter connection issues:
 
 4. **Test MCP Server Manually**:
    ```bash
-   # This should create a server without errors
+   # Test server creation
    python -c "from src.server import create_mcp_server; server = create_mcp_server(); print('✅ Server OK')"
+   
+   # Test HTTP endpoint (if using HTTP transport)
+   curl -X POST http://localhost:8000/azebal/mcp \
+     -H "Content-Type: application/json" \
+     -H "Accept: application/json, text/event-stream" \
+     -d '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test-client", "version": "1.0.0"}}}'
    ```
 
 5. **Check Cursor Logs**:

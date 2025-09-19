@@ -1,8 +1,9 @@
 {
   "mcpServers": {
     "azebal": {
-      "command": "python",
-      "args": ["/Users/hyunjungil/workplace/AZEBAL/run_mcp_server.py"]
+      "type": "http",
+      "url": "http://localhost:8000/azebal/mcp",
+      "headers": {}
     }
   }
 }
