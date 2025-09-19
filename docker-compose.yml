@@ -19,12 +19,7 @@ services:
     networks:
       - azebal-network
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "src/health_check.py", "--host", "localhost", "--port", "8000"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+    # Health check removed - MCP server handles its own health monitoring
 
 networks:
   azebal-network:

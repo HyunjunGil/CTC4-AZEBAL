@@ -36,9 +36,7 @@ RUN chmod +x run_mcp_server.py run_mcp_server_sse.py
 # Expose port for SSE transport
 EXPOSE 8000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python src/health_check.py --host localhost --port 8000
+# Health check removed - MCP server handles its own health monitoring
 
 # Default command - run with SSE transport
 CMD ["python", "run_mcp_server_sse.py"]

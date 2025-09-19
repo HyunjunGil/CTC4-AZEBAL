@@ -21,9 +21,34 @@ def check_health(host: str = "localhost", port: int = 8000) -> bool:
         bool: True if server is healthy, False otherwise
     """
     try:
-        # Try to connect to the AZEBAL MCP endpoint
-        response = requests.get(f"http://{host}:{port}/azebal/mcp", timeout=5)
-        return response.status_code == 200
+        # Try to connect to the AZEBAL MCP endpoint with proper MCP headers
+        headers = {
+            'Accept': 'application/json, text/event-stream',
+            'Content-Type': 'application/json'
+        }
+        response = requests.get(f"http://{host}:{port}/azebal/mcp", 
+                              headers=headers, timeout=5)
+        
+        # For MCP streamable-http, we expect either:
+        # - 200 OK (if session is properly established)
+        # - 400 Bad Request with "Missing session ID" (server is running but needs session)
+        # - 406 Not Acceptable (wrong headers - server not running properly)
+        
+        if response.status_code == 200:
+            return True
+        elif response.status_code == 400:
+            # Check if it's the expected "Missing session ID" error
+            try:
+                error_data = response.json()
+                if "Missing session ID" in error_data.get("error", {}).get("message", ""):
+                    return True  # Server is running, just needs proper session
+            except:
+                pass
+        elif response.status_code == 406:
+            # Wrong headers - server might not be running properly
+            return False
+            
+        return False
     except Exception as e:
         print(f"Health check failed: {e}")
         return False

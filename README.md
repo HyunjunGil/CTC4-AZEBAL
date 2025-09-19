@@ -266,25 +266,77 @@ AZEBAL supports two MCP transport methods:
 
 ### Docker Deployment
 
-For production or containerized deployments:
+For production or containerized deployments, AZEBAL provides a complete Docker setup:
+
+#### **Quick Start with Docker**
 
 ```bash
 # Build Docker image
 docker build -t azebal-mcp:latest .
 
-# Run container
+# Run container with HTTP transport
 docker run -d --name azebal-mcp-server \
   -p 8000:8000 \
   -e MCP_HOST=0.0.0.0 \
   -e MCP_PORT=8000 \
+  --restart unless-stopped \
   azebal-mcp:latest
 
-# Test connection
+# Verify container is running
+docker ps --filter name=azebal-mcp-server
+
+# Check logs
+docker logs azebal-mcp-server
+```
+
+#### **Using Docker Compose (Recommended)**
+
+```bash
+# Start with docker-compose
+docker-compose up -d
+
+# Check status
+docker-compose ps
+
+# View logs
+docker-compose logs -f azebal-mcp
+
+# Stop services
+docker-compose down
+```
+
+#### **Testing Docker Deployment**
+
+```bash
+# Test MCP endpoint
 curl -X POST http://localhost:8000/azebal/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -d '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test-client", "version": "1.0.0"}}}'
+
+# Test greeting tool (requires session management)
+curl -X POST http://localhost:8000/azebal/mcp \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "greeting", "arguments": {}}}'
 ```
+
+#### **Docker Configuration Details**
+
+**Container Features:**
+- **Base Image**: Python 3.11-slim
+- **Transport**: Streamable-HTTP on port 8000
+- **Endpoint**: `http://localhost:8000/azebal/mcp`
+- **Health Check**: HTTP GET to `/azebal/mcp` endpoint
+- **Restart Policy**: `unless-stopped`
+
+**Environment Variables:**
+- `MCP_HOST=0.0.0.0` - Bind to all interfaces
+- `MCP_PORT=8000` - HTTP port
+- `PYTHONPATH=/app` - Python path configuration
+
+**Volume Mounts (Development):**
+- `./src:/app/src:ro` - Read-only source code mounting for development
 
 ### Troubleshooting MCP Connection
 
@@ -327,7 +379,26 @@ If AZEBAL doesn't appear in Cursor or you encounter connection issues:
      -d '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test-client", "version": "1.0.0"}}}'
    ```
 
-5. **Check Cursor Logs**:
+5. **Docker Troubleshooting**:
+   ```bash
+   # Check container status
+   docker ps -a --filter name=azebal-mcp-server
+   
+   # View container logs
+   docker logs azebal-mcp-server
+   
+   # Check container health
+   docker inspect azebal-mcp-server | grep -A 5 "Health"
+   
+   # Restart container if needed
+   docker restart azebal-mcp-server
+   
+   # Remove and recreate container
+   docker stop azebal-mcp-server && docker rm azebal-mcp-server
+   docker run -d --name azebal-mcp-server -p 8000:8000 azebal-mcp:latest
+   ```
+
+6. **Check Cursor Logs**:
    - Open Cursor Developer Tools (`Cmd+Shift+I` on macOS, `Ctrl+Shift+I` on Windows/Linux)
    - Look for MCP-related error messages in the console
 
