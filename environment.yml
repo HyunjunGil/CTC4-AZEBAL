@@ -1,0 +1,80 @@
+name: azebal
+channels:
+  - defaults
+  - conda-forge
+dependencies:
+  # Core Python
+  - python=3.11.*
+  
+  # Core Dependencies
+  - pip
+  - setuptools
+  - wheel
+  
+  # Development Tools
+  - black
+  - flake8
+  - mypy
+  - isort
+  
+  # Testing
+  - pytest>=8.0
+  - pytest-cov
+  - pytest-asyncio
+  - pytest-mock
+  
+  # Database (Local Development)
+  - mariadb-connector-c
+  
+  # Redis
+  - redis-py
+  
+  # Additional pip dependencies
+  - pip:
+    # FastMCP Framework
+    - fastmcp
+    
+    # Azure SDK
+    - azure-identity>=1.15.0
+    - azure-mgmt-resource>=23.0.0
+    - azure-mgmt-compute>=30.0.0
+    - azure-mgmt-network>=25.0.0
+    - azure-mgmt-storage>=21.0.0
+    - azure-mgmt-containerregistry>=10.0.0
+    - azure-mgmt-containerinstance>=10.0.0
+    - azure-mgmt-web>=7.0.0
+    
+    # OpenAI Integration
+    - openai>=1.0.0
+    - azure-openai
+    
+    # Web Framework & HTTP
+    - fastapi>=0.104.0
+    - uvicorn[standard]>=0.24.0
+    - httpx>=0.25.0
+    - pydantic>=2.5.0
+    
+    # Security & Authentication  
+    - cryptography>=41.0.0
+    - PyJWT>=2.8.0
+    - python-multipart
+    
+    # Database Connectors
+    - mariadb>=1.1.8
+    - psycopg2-binary>=2.9.0
+    - SQLAlchemy>=2.0.0
+    - alembic>=1.12.0
+    
+    # Configuration & Environment
+    - python-dotenv>=1.0.0
+    - pydantic-settings>=2.1.0
+    
+    # Utilities
+    - structlog>=23.0.0
+    - tenacity>=8.2.0
+    - click>=8.1.0
+    
+    # Development Dependencies
+    - pre-commit>=3.5.0
+    - safety>=2.3.0
+    - bandit>=1.7.0
