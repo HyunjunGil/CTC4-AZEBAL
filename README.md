@@ -106,7 +106,11 @@ azebal/
 
 5. **Run the MCP server**
    ```bash
-   python src/main.py
+   # Run with stdio transport (default)
+   python -m src.cli --transport stdio
+   
+   # Or run with SSE transport
+   python -m src.cli --transport sse --host localhost --port 8000
    ```
 
 ### Development Setup
@@ -173,24 +177,108 @@ DB_NAME=azebal_dev
 
 ## 🎮 **Usage**
 
-### IDE Integration
+### Cursor IDE Integration
 
-AZEBAL works as an MCP server with IDE AI agents:
+AZEBAL integrates seamlessly with Cursor IDE through the Model Context Protocol (MCP). Follow these steps to connect AZEBAL to Cursor:
 
-1. **Login**: Authenticate with your Microsoft account
-   ```
-   Agent: *azebal login
+#### Step 1: Configure Cursor MCP Settings
+
+1. **Open Cursor MCP configuration file**:
+   - **macOS/Linux**: `~/.cursor/mcp.json`
+   - **Windows**: `%APPDATA%\Cursor\mcp.json`
+
+2. **Add AZEBAL server configuration**:
+   ```json
+   {
+     "mcpServers": {
+       "azebal": {
+         "command": "python",
+         "args": [
+           "-m", "src.cli", 
+           "--transport", "stdio"
+         ],
+         "cwd": "/path/to/your/AZEBAL"
+       }
+     }
+   }
    ```
 
-2. **Debug Errors**: Analyze Azure-related errors
+   **Important**: Replace `/path/to/your/AZEBAL` with the actual absolute path to your AZEBAL project directory.
+
+#### Step 2: Restart Cursor
+
+After adding the configuration, restart Cursor IDE to load the AZEBAL MCP server.
+
+#### Step 3: Test the Connection
+
+1. Open any file in Cursor
+2. Start a chat with the AI assistant
+3. Type a message to test the greeting tool:
    ```
-   Agent: *azebal debug_error "ACR authentication failed" <source_code>
+   Can you use the greeting tool from AZEBAL?
    ```
+
+The AI assistant should be able to access AZEBAL's tools and return "hello" from the greeting function.
 
 ### Available Tools
 
+Current AZEBAL tools accessible through Cursor:
+
+- **`greeting`**: A test tool that returns "hello" (for testing connectivity)
+
+*Future tools planned*:
 - **`login`**: Authenticate user and establish Azure session
 - **`debug_error`**: Comprehensive Azure error analysis and debugging
+
+### Transport Methods
+
+AZEBAL supports two MCP transport methods:
+
+1. **stdio** (recommended for Cursor): Direct process communication
+   ```bash
+   python -m src.cli --transport stdio
+   ```
+
+2. **SSE** (for web-based integrations): Server-Sent Events over HTTP
+   ```bash
+   python -m src.cli --transport sse --host localhost --port 8000
+   ```
+
+### Troubleshooting MCP Connection
+
+If AZEBAL doesn't appear in Cursor or you encounter connection issues:
+
+1. **Verify Python Environment**:
+   ```bash
+   # Ensure you're in the correct conda environment
+   conda activate azebal
+   
+   # Test the server manually
+   cd /path/to/AZEBAL
+   python -m src.cli --transport stdio
+   ```
+
+2. **Check File Paths**:
+   - Ensure the `cwd` path in `mcp.json` points to your actual AZEBAL directory
+   - Use absolute paths, not relative paths
+   - On Windows, use forward slashes or escape backslashes
+
+3. **Verify Cursor Configuration**:
+   ```bash
+   # Check if mcp.json exists and is valid JSON
+   cat ~/.cursor/mcp.json  # macOS/Linux
+   type %APPDATA%\Cursor\mcp.json  # Windows
+   ```
+
+4. **Test MCP Server Manually**:
+   ```bash
+   # This should create a server without errors
+   python -c "from src.server import create_mcp_server; server = create_mcp_server(); print('✅ Server OK')"
+   ```
+
+5. **Check Cursor Logs**:
+   - Open Cursor Developer Tools (`Cmd+Shift+I` on macOS, `Ctrl+Shift+I` on Windows/Linux)
+   - Look for MCP-related error messages in the console
 
 ## 🧪 **Testing**
 

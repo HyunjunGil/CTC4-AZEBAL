@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "azebal": {
+      "command": "python",
+      "args": ["/Users/hyunjungil/workplace/AZEBAL/run_mcp_server.py"]
+    }
+  }
+}

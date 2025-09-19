@@ -10,6 +10,6 @@ __author__ = "AZEBAL Team"
 __email__ = "azebal@kt.com"
 
 # Package level imports for convenience
-from .main import create_server
+from src.server import create_mcp_server
 
-__all__ = ["create_server"]
+__all__ = ["create_mcp_server"]
