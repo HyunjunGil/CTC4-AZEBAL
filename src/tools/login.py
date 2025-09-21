@@ -107,7 +107,7 @@ def login_tool(azure_access_token: str) -> Dict[str, Any]:
             logger.warning(f"Authentication failed for token: {token_hash}")
             return {
                 "success": False,
-                "message": "Authentication failed. Please verify your Azure access token and permissions.",
+                "message": "Authentication failed. Please check your Azure access token.",
                 "error": "INVALID_TOKEN",
             }
 
@@ -119,7 +119,7 @@ def login_tool(azure_access_token: str) -> Dict[str, Any]:
 
             return {
                 "success": True,
-                "message": f"Login successful for {user_info.user_principal_name}",
+                "message": "Login successful",
                 "azebal_token": azebal_token,
                 "user_info": {
                     "object_id": user_info.object_id,
