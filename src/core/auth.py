@@ -8,8 +8,6 @@ from typing import Optional, Tuple
 from dataclasses import dataclass
 
 import jwt
-from azure.identity import DefaultAzureCredential
-from azure.mgmt.resource import ResourceManagementClient
 import httpx
 
 from .logging_config import get_logger
@@ -31,24 +29,9 @@ class UserInfo:
 class AzureAuthService:
     """Service for Azure authentication and token validation."""
 
-    def __init__(self, subscription_id: Optional[str] = None):
-        """
-        Initialize Azure authentication service.
-
-        Args:
-            subscription_id: Azure subscription ID for resource management operations
-        """
-        self.subscription_id = subscription_id
-        self._resource_client = None
-
-    def _get_resource_client(self) -> ResourceManagementClient:
-        """Get or create Azure Resource Management client."""
-        if self._resource_client is None:
-            credential = DefaultAzureCredential()
-            self._resource_client = ResourceManagementClient(
-                credential=credential, subscription_id=self.subscription_id
-            )
-        return self._resource_client
+    def __init__(self):
+        """Initialize Azure authentication service."""
+        pass
 
     def validate_access_token(self, access_token: str) -> bool:
         """
