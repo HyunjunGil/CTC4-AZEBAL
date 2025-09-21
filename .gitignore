@@ -115,3 +115,6 @@ web-bundles/
 
 *.pyc
 .mcp.json
+__pycache__/
+*.pyc
+*.pyo
