@@ -16,10 +16,14 @@ sys.path.insert(0, str(project_root))
 # Import and run the server
 try:
     from src.server import create_mcp_server
+    from src.core.logging_config import setup_logging
     import uvicorn
     
     def main():
         """Main entry point for the SSE MCP server."""
+        # Initialize logging first
+        setup_logging(level="INFO")
+        
         server = create_mcp_server()
         
         # Get host and port from environment variables or use defaults

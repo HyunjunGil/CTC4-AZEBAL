@@ -10,9 +10,9 @@
 
 AZEBAL transforms fragmented Azure debugging approaches into a systematic, AI-powered solution that:
 
-- **Authenticates** users via Microsoft OAuth 2.0 using their company accounts
-- **Analyzes** Azure errors by combining source code context with real-time resource status
-- **Provides** actionable debugging insights and solutions directly in your IDE
+- **Authenticates** users via Azure CLI access tokens (Phase 1 Complete ✅)
+- **Analyzes** Azure errors by combining source code context with real-time resource status (Phase 2 - Planned)
+- **Provides** actionable debugging insights and solutions directly in your IDE (Phase 2 - Planned)
 - **Reduces** development time spent on Azure-related troubleshooting
 
 ## 🏗️ **Architecture**
@@ -20,10 +20,11 @@ AZEBAL transforms fragmented Azure debugging approaches into a systematic, AI-po
 This project follows a **monolithic architecture** for rapid MVP development:
 
 - **FastMCP Server**: Single entry point for IDE AI agent communication
-- **Authentication Module**: OAuth 2.0 integration with Microsoft ID Platform  
-- **LLM Engine**: Core error analysis using Azure OpenAI
-- **Azure API Client**: Real-time Azure resource queries
-- **Session Management**: Redis-based user session storage
+- **Authentication Module**: Azure CLI token-based authentication (Phase 1 Complete ✅)
+- **JWT Service**: AZEBAL-specific JWT token management (Phase 1 Complete ✅)
+- **LLM Engine**: Core error analysis using Azure OpenAI (Phase 2 - Planned)
+- **Azure API Client**: Real-time Azure resource queries (Phase 2 - Planned)
+- **Session Management**: Redis-based user session storage (Phase 2 - Planned)
 
 ## 📁 **Project Structure**
 
@@ -38,13 +39,14 @@ azebal/
 ├── src/                   # Source code
 │   ├── __init__.py
 │   ├── main.py           # MCP server entry point
-│   ├── tools/            # MCP tool definitions (login, debug_error)
-│   │   ├── definitions.py
-│   │   └── schemas.py
+│   ├── tools/            # MCP tool definitions
+│   │   ├── greeting.py   # Test greeting tool
+│   │   └── login.py      # Azure CLI login tool (Phase 1 Complete ✅)
 │   ├── core/             # Core business logic
-│   │   ├── auth.py       # Authentication management
-│   │   ├── engine.py     # LLM analysis engine
-│   │   └── config.py     # Configuration management
+│   │   ├── auth.py       # Azure authentication service (Phase 1 Complete ✅)
+│   │   ├── jwt_service.py # JWT token management (Phase 1 Complete ✅)
+│   │   ├── config.py     # Configuration management (Phase 1 Complete ✅)
+│   │   └── engine.py     # LLM analysis engine (Phase 2 - Planned)
 │   ├── services/         # External service integrations
 │   │   └── azure_client.py
 │   └── utils/            # Utility functions
@@ -65,9 +67,9 @@ azebal/
 
 - **Python 3.11+**
 - **Conda** (recommended for environment management)
-- **Microsoft Azure Account** with appropriate permissions
-- **Redis Server** (for local development)
-- **MariaDB** (for local development testing)
+- **Azure CLI** (for authentication - Phase 1)
+- **Azure Account** with appropriate permissions (Phase 1)
+- **Redis Server** (for session storage - Phase 2)
 
 ### Installation
 
@@ -86,22 +88,16 @@ azebal/
 3. **Configure environment**
    ```bash
    cp environment.template .env
-   # Edit .env with your actual Azure and Microsoft credentials
+   # Edit .env with your Azure subscription ID and JWT secret key
    ```
 
-4. **Set up local services**
+4. **Set up Azure CLI authentication**
    ```bash
-   # Start Redis (using Docker)
-   docker run -d --name azebal-redis -p 6379:6379 redis:7-alpine
+   # Login to Azure CLI
+   az login
    
-   # Start MariaDB (using Docker)
-   docker run -d --name azebal-mariadb \
-     -p 3306:3306 \
-     -e MYSQL_ROOT_PASSWORD=password \
-     -e MYSQL_DATABASE=azebal_dev \
-     -e MYSQL_USER=azebal \
-     -e MYSQL_PASSWORD=password \
-     mariadb:10
+   # Get your access token (for testing)
+   az account get-access-token
    ```
 
 5. **Run the MCP server**
@@ -153,27 +149,92 @@ azebal/
 Key configuration variables (see `environment.template` for complete list):
 
 ```bash
-# Microsoft Authentication
-MS_CLIENT_ID=your_microsoft_app_client_id
-MS_CLIENT_SECRET=your_microsoft_app_client_secret
-MS_TENANT_ID=your_microsoft_tenant_id
+# Azure Configuration (Phase 1)
+AZURE_SUBSCRIPTION_ID=your-azure-subscription-id
 
-# Azure OpenAI
-AZURE_OPENAI_ENDPOINT=https://your-openai-resource.openai.azure.com/
-AZURE_OPENAI_API_KEY=your_azure_openai_api_key
+# JWT Configuration (Phase 1)
+JWT_SECRET_KEY=your-secret-key-change-in-production
+JWT_ALGORITHM=HS256
+JWT_EXPIRATION_HOURS=24
 
-# Database
+# Redis Configuration (Phase 2 - Future)
 REDIS_HOST=localhost
-DB_HOST=localhost
-DB_NAME=azebal_dev
+REDIS_PORT=6379
 ```
 
-### Microsoft App Registration
+### Azure CLI Setup
 
-1. Register a new application in Azure AD
-2. Configure redirect URI: `http://localhost:8000/auth/callback`
-3. Grant necessary API permissions for Azure Resource Manager
-4. Generate client secret and note the application ID
+1. **Install Azure CLI**:
+   ```bash
+   # Ubuntu/Debian
+   curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+   
+   # macOS (using Homebrew)
+   brew install azure-cli
+   
+   # Windows (using PowerShell)
+   Invoke-WebRequest -Uri https://aka.ms/installazurecliwindows -OutFile .\AzureCLI.msi; Start-Process msiexec.exe -Wait -ArgumentList '/I AzureCLI.msi /quiet'
+   ```
+
+2. **Login to Azure**:
+   ```bash
+   az login
+   ```
+
+3. **Check Available Subscriptions**:
+   ```bash
+   # List all available subscriptions
+   az account list --output table
+   
+   # Show current subscription
+   az account show
+   
+   # Get subscription ID only
+   az account show --query id --output tsv
+   ```
+
+4. **Set Your Subscription** (if needed):
+   ```bash
+   # Set by subscription ID
+   az account set --subscription "your-subscription-id"
+   
+   # Set by subscription name
+   az account set --subscription "Your Subscription Name"
+   ```
+
+5. **Get Access Token**:
+   ```bash
+   # Get access token for current subscription
+   az account get-access-token
+   
+   # Get access token for specific resource
+   az account get-access-token --resource https://management.azure.com/
+   ```
+
+### **Quick Reference: Azure CLI Commands**
+
+```bash
+# Authentication & Account Management
+az login                                    # Login to Azure
+az logout                                   # Logout from Azure
+az account show                             # Show current account info
+az account list --output table             # List all subscriptions
+az account set --subscription "sub-id"     # Switch subscription
+
+# Access Tokens
+az account get-access-token                # Get access token
+az account get-access-token --query expiresOn  # Check token expiration
+
+# Subscription Information
+az account show --query "{Name:name, Id:id, State:state, TenantId:tenantId}"
+az account show --query id --output tsv    # Get subscription ID only
+az account show --query name --output tsv  # Get subscription name only
+
+# Troubleshooting
+az --version                               # Check Azure CLI version
+az account list --all                      # List all subscriptions (including disabled)
+az role assignment list --assignee $(az account show --query user.name --output tsv)
+```
 
 ## 🎮 **Usage**
 
@@ -385,11 +446,37 @@ curl -X POST http://localhost:8000/sse/ \
 
 ## 🛠️ **Available Tools**
 
-### **Current Tools**
+### **Phase 1 Tools (Complete ✅)**
 - **`greeting`**: A test tool that returns "hello" (for testing connectivity)
+- **`login`**: Authenticate user with Azure CLI access token and get AZEBAL JWT
 
-### **Planned Tools**
-- **`login`**: Authenticate user and establish Azure session
+#### **Login Tool Usage Example**
+
+```bash
+# 1. Get Azure access token
+az account get-access-token
+
+# 2. Use the token with AZEBAL login tool
+# (This would be called through your IDE MCP client)
+```
+
+**Login Tool Response:**
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "azebal_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+  "user_info": {
+    "object_id": "12345678-1234-1234-1234-123456789012",
+    "user_principal_name": "user@company.com",
+    "tenant_id": "87654321-4321-4321-4321-210987654321",
+    "display_name": "John Doe",
+    "email": "user@company.com"
+  }
+}
+```
+
+### **Phase 2 Tools (Planned)**
 - **`debug_error`**: Comprehensive Azure error analysis and debugging
 
 ---
@@ -438,6 +525,50 @@ curl -X POST http://localhost:8000/sse/ \
    
    # For Docker
    docker logs azebal-mcp-server
+   ```
+
+### **Azure CLI Issues**
+
+1. **Check Azure CLI Installation**:
+   ```bash
+   # Verify Azure CLI is installed
+   az --version
+   
+   # Check if logged in
+   az account show
+   ```
+
+2. **Subscription Issues**:
+   ```bash
+   # List all available subscriptions
+   az account list --output table
+   
+   # Check current subscription
+   az account show --query "{Name:name, Id:id, State:state}"
+   
+   # Switch subscription if needed
+   az account set --subscription "your-subscription-id"
+   ```
+
+3. **Access Token Issues**:
+   ```bash
+   # Get fresh access token
+   az account get-access-token
+   
+   # Check token expiration
+   az account get-access-token --query expiresOn
+   
+   # Re-login if token is expired
+   az login
+   ```
+
+4. **Permission Issues**:
+   ```bash
+   # Check your role assignments
+   az role assignment list --assignee $(az account show --query user.name --output tsv)
+   
+   # Check if you have access to Azure Resource Manager
+   az account get-access-token --resource https://management.azure.com/
    ```
 
 ### **Cursor IDE Issues**
@@ -513,15 +644,17 @@ pytest tests/e2e/          # End-to-end tests
 
 ### Epic Development Plan
 
-**Epic 1: Security Authentication and Azure Session Foundation**
-- Implement Microsoft OAuth 2.0 authentication flow
-- Establish secure session management
-- Validate Azure API connectivity
+**Epic 1: Azure CLI Token-based Authentication (Complete ✅)**
+- ✅ Implement Azure CLI access token authentication
+- ✅ Create AZEBAL JWT token management
+- ✅ Validate Azure API connectivity
+- ✅ Establish secure user session foundation
 
-**Epic 2: Real-time Error Analysis Engine Implementation**
-- Develop comprehensive error analysis capabilities
-- Integrate Azure resource status queries
-- Implement LLM-powered solution generation
+**Epic 2: Real-time Error Analysis Engine Implementation (In Progress)**
+- 🔄 Develop comprehensive error analysis capabilities
+- 🔄 Integrate Azure resource status queries
+- 🔄 Implement LLM-powered solution generation
+- 🔄 Add Redis session management
 
 ## 🤝 **Contributing**
 
