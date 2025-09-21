@@ -16,13 +16,44 @@ logger = get_logger(__name__)
 
 def login_tool(azure_access_token: str) -> Dict[str, Any]:
     """
-    Login tool that authenticates users with Azure access tokens.
+    Authenticate user with AZEBAL using Azure CLI access token.
+    
+    This function validates the provided Azure access token through the Azure Management API,
+    extracts user information, and creates a secure AZEBAL JWT token for session management.
+
+    PREREQUISITES:
+    - User must have Azure CLI installed and authenticated
+    - User must have access to at least one Azure subscription
+    - Azure access token must be valid and not expired
+
+    AZURE CLI SETUP STEPS:
+    1. Install Azure CLI: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli
+    2. Login: 'az login'
+    3. Set subscription: 'az account set --subscription "Your-Subscription-Name"'
+    4. Get token: 'az account get-access-token --query accessToken --output tsv'
 
     Args:
-        azure_access_token: Azure CLI access token for authentication
+        azure_access_token (str): Azure CLI access token obtained from 'az account get-access-token'.
+                                 Must be a valid JWT token with proper Azure permissions.
 
     Returns:
-        Dict containing login result and AZEBAL JWT token if successful
+        Dict[str, Any]: Authentication result containing:
+            - success (bool): Whether authentication was successful
+            - message (str): Human-readable status message
+            - azebal_token (str, optional): AZEBAL JWT token for session management
+            - user_info (dict, optional): Extracted user information from Azure token
+            - error (str, optional): Error code if authentication failed
+
+    Raises:
+        No exceptions are raised - all errors are returned in the response dict
+
+    Example:
+        >>> result = login_tool("eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiIs...")
+        >>> if result["success"]:
+        ...     print(f"Welcome {result['user_info']['user_principal_name']}")
+        ...     azebal_token = result["azebal_token"]
+        ... else:
+        ...     print(f"Login failed: {result['message']}")
     """
     try:
         logger.info("Starting login process with Azure access token")
