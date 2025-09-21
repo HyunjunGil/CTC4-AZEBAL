@@ -1,8 +1,8 @@
 # AZEBAL Product Requirements Document (PRD)
 
-* **Document Version:** 1.0
-* **Created:** September 18, 2025
-* **Author:** John (Product Manager)
+**Document Version:** 2.0
+**Created:** September 21, 2025
+**Author:** John (PM)
 
 ---
 
@@ -23,18 +23,18 @@ Currently, KT's Azure developers are wasting unnecessary time and resources due 
 | Date | Version | Description | Author |
 | :--- | :--- | :--- | :--- |
 | 2025-09-18 | 1.0 | Initial document creation | John (PM) |
+| 2025-09-21 | 2.0 | Modified login method from MS OAuth 2.0 to Azure CLI token-based authentication | John (PM) |
 
 ---
 
 ## 2. Requirements
 
 #### **2.1 Functional Requirements**
-* **FR1**: Users must be able to authenticate using their Microsoft company account via OAuth 2.0 through the `login` tool.
-* **FR2**: The `login` tool must issue an AZEBAL-specific access token that can query the user's Azure permissions upon successful authentication.
-* **FR3**: Users must be able to call the `debug_error` tool with a valid access token and error summary information.
-* **FR4**: The system must analyze the error message passed during `debug_error` requests and suggest the expected range of source code files needed for debugging to the user for confirmation.
-* **FR5**: The system must call Azure APIs based on user permissions to collect real-time status information of Azure resources related to the error.
-* **FR6**: The system must comprehensively analyze all collected information (user context, real-time resource status) to generate a response including expected error causes and their rationale.
+* **FR1**: Users must be able to authenticate using Azure CLI access tokens obtained from their local environment through the `login` tool.
+* **FR2**: The `login` tool must validate the provided Azure access token and issue an AZEBAL-specific JWT token upon successful validation.
+* **FR3**: Users must be able to call the `debug_error` tool with a valid AZEBAL JWT token, error summary information, and related source code.
+* **FR4**: The system must call Azure APIs based on user permissions (Azure access token-based) to collect real-time status information of Azure resources related to the error.
+* **FR5**: The system must comprehensively analyze all collected information to generate a single response including expected error causes, debugging process, and actionable solutions.
 
 #### **2.2 Non-Functional Requirements**
 * **NFR1 (Performance)**: Average response time for `debug_error` requests must be within 5 minutes.
@@ -63,84 +63,91 @@ Currently, KT's Azure developers are wasting unnecessary time and resources due 
 
 AZEBAL MVP development consists of two sequential epics considering technical dependencies and value delivery stages.
 
-* **Epic 1: Security Authentication and Azure Session Foundation**
-    * **Goal**: Establish a technical foundation where users can securely authenticate to AZEBAL with their MS account within the IDE, and AZEBAL can successfully call Azure APIs on behalf of users based on this authentication information.
+* **Epic 1: Azure CLI Token-based Authentication**
+    * **Goal**: Establish a technical foundation where users can securely authenticate to AZEBAL using Azure CLI access tokens from their local environment, and AZEBAL can successfully call Azure APIs on behalf of users based on this authentication information.
 
 * **Epic 2: Real-time Error Analysis Engine Implementation**
     * **Goal**: Implement the core analysis functionality of the `debug_error` tool that analyzes and resolves actual user errors on the authentication foundation built in Epic 1.
 
 ---
 
-## 5. Epic 1: Security Authentication and Azure Session Foundation
+## 5. Epic 1: Azure CLI Token-based Authentication
 
-> **Epic Goal**: Establish a technical foundation where users can securely authenticate to AZEBAL with their MS account within the IDE, and AZEBAL can successfully call Azure APIs on behalf of users based on this authentication information. The completion of this epic means resolving the project's biggest technical risk: the 'authentication and permission integration' problem.
+> **Epic Goal**: Establish a technical foundation where users can securely authenticate to AZEBAL using Azure CLI access tokens from their local environment, and AZEBAL can successfully call Azure APIs on behalf of users based on this authentication information.
 
-#### **Story 1: Complete Authentication and Authorization Flow**
+### **Story 1.1: AZEBAL Login using Azure Access Token**
 * **As a** KT developer,
-* **I want** to log in to AZEBAL using my Microsoft company account via a `login` tool and have the system issue a secure AZEBAL-specific access token while verifying my Azure permissions,
-* **so that** I can securely prove my identity without creating or managing a separate password, and the system can manage my sessions and verify my Azure access rights for subsequent API calls.
+* **I want** to use my existing Azure CLI access token to log in to AZEBAL via a `login` tool,
+* **so that** I can leverage my current authentication status without going through a separate browser login process.
 
 **Acceptance Criteria:**
-1. When a user calls the `login` tool in the IDE, they receive a valid Microsoft login URL generated by the AZEBAL server as a response.
-2. When the user successfully completes MS account login through the URL, the authentication code is delivered to the AZEBAL server through the browser.
-3. The AZEBAL server successfully issues an access token from MS using the authentication code.
-4. When a user's MS account authentication succeeds, the AZEBAL server generates its own access token (JWT, etc.) containing the user's identification information.
-5. The generated AZEBAL token is securely delivered to the user.
-6. The server has a mechanism to verify the validity of issued tokens.
-7. The AZEBAL server successfully calls an API to query the user's Azure subscription list or basic role information using the user's valid token.
-8. The API call results are successfully received and parsed.
-9. When calling the API with an invalid token, the expected authentication error occurs.
-10. When the entire process is complete, the user sees a "Login successful" message in the IDE.
+1. When a user calls the `login` tool with an Azure access token, the AZEBAL server successfully receives the token.
+2. The AZEBAL server validates the received Azure access token through the Azure Management API.
+3. If the token is valid, the server can extract the user's unique information (Object ID, UPN, etc.) from the token.
+4. When requesting with an invalid token, the expected authentication error occurs.
 
-**Login Process Flow:**
+### **Story 1.2: AZEBAL-specific JWT Token Issuance and Session Creation**
+* **As an** AZEBAL system,
+* **I want** to issue a secure, AZEBAL-specific JWT token after a user's Azure access token is validated,
+* **so that** I can manage user sessions and securely verify their identity for subsequent `debug_error` calls.
 
+**Acceptance Criteria:**
+1. When a user's Azure access token validation succeeds, the AZEBAL server generates its own JWT token (AZEBAL token) containing the user's identification information.
+2. The user's Azure access token (in encrypted state) and session information are stored in Redis.
+3. The generated AZEBAL JWT token is securely returned to the user, and the user sees a "Login successful" message.
+
+#### Modified Authentication Flow
+
+**Text Flow:**
+1. User: `az login` (Azure authentication in local environment)
+2. User: Execute `az account get-access-token` to issue Azure Access Token
+3. User: Pass the issued Azure Access Token to AZEBAL `login` tool
+4. AZEBAL server: Validate Azure Access Token and store encrypted in Redis
+5. AZEBAL server: Issue user-specific AZEBAL JWT token and return
+6. User: Use AZEBAL JWT for `debug_error` tool
+
+#### Modified Authentication Flow Diagram
 ```mermaid
 sequenceDiagram
-    participant User as User (IDE)
+    participant User as User (Local)
+    participant CLI as Azure CLI
     participant Agent as IDE AI Agent
-    participant AzeBAL as AZEBAL MCP Server
-    participant Microsoft as MS ID Platform
+    participant AZEBAL as AZEBAL MCP Server
+    participant Redis as Redis Session Store
+    participant Azure as Azure Management API
 
-    User->>Agent: `*azebal login` command execution
-    Agent->>AzeBAL: Login request transmission
-    AzeBAL-->>Agent: MS login URL generation and return
-    Agent-->>User: "Click this link to login" (URL display)
-    User->>Microsoft: Click link in browser, login with MS account
-    Microsoft-->>User: After successful authentication, redirect to<br>specified Redirect URI with Auth Code
-    User->>Agent: Copy auth code from browser and<br>deliver to IDE agent
-    Agent->>AzeBAL: Deliver received auth code to server
-    AzeBAL->>Microsoft: Send auth code, app ID, secret key to<br>request Access Token
-    Microsoft-->>AzeBAL: Return Access Token
-    AzeBAL->>Microsoft: Use received access token to request<br>user info (employee ID, email, etc.) and Azure permission groups
-    Microsoft-->>AzeBAL: Return user info and permission groups
-    AzeBAL-->>Agent: Generate **AZEBAL-specific token** and<br>return with "Login successful" message
-    Agent-->>User: "AZEBAL login successful!"
+    Note over User, CLI: 1. Local Azure Authentication
+    User->>CLI: az login
+    CLI-->>User: Azure authentication complete
+
+    Note over User, CLI: 2. Access Token Issuance
+    User->>CLI: az account get-access-token
+    CLI-->>User: Azure Access Token returned
+
+    Note over User, AZEBAL: 3. AZEBAL Login
+    User->>Agent: Call login tool (with Azure Access Token)
+    Agent->>AZEBAL: Pass Azure Access Token
+
+    Note over AZEBAL, Azure: 4. Token Validation and User Info Extraction
+    AZEBAL->>Azure: Query user info with Azure Access Token
+    Azure-->>AZEBAL: Return user info (Object ID, UPN, etc.)
+
+    Note over AZEBAL, Redis: 5. Session Creation and Token Storage
+    AZEBAL->>Redis: Create user session (store encrypted Azure Access Token)
+    AZEBAL->>AZEBAL: Generate AZEBAL JWT token
+    AZEBAL-->>Agent: Return AZEBAL JWT token
+    Agent-->>User: "Login successful" message
+
+    Note over User, Azure: 6. When using debug_error
+    User->>Agent: Call debug_error tool (AZEBAL JWT + error info)
+    Agent->>AZEBAL: Debugging request
+    AZEBAL->>Redis: Query user session with AZEBAL JWT
+    Redis-->>AZEBAL: Return encrypted Azure Access Token
+    AZEBAL->>Azure: Query Azure resources with user Azure Access Token
+    Azure-->>AZEBAL: Return Azure resource information
+    AZEBAL-->>Agent: Return analysis results
+    Agent-->>User: Display debugging results
 ```
-
-**Test Cases:**
-* **TC1.1**: Verify that calling `login` tool returns a valid Microsoft OAuth URL
-* **TC1.2**: Verify that user can complete Microsoft authentication flow and receive auth code
-* **TC1.3**: Verify that AZEBAL server can exchange auth code for MS access token
-* **TC1.4**: Verify that AZEBAL server generates and returns its own JWT token
-* **TC1.5**: Verify that AZEBAL server can query Azure permissions using MS token
-* **TC1.6**: Verify that invalid tokens are properly rejected with appropriate error messages
-* **TC1.7**: Verify that token validation mechanism works correctly
-* **TC1.8**: Verify end-to-end login flow completes successfully
-
-**Out of Scope:**
-* Multi-factor authentication (MFA) configuration and management
-* Token refresh mechanisms beyond basic expiration handling
-* Advanced Azure RBAC role management and custom permissions
-* Integration with external identity providers other than Microsoft
-* Session management across multiple devices
-* Advanced security features like device fingerprinting
-
-**Notes:**
-* This story combines the complete authentication flow from initial login through permission verification
-* The Microsoft OAuth 2.0 flow must be implemented according to industry standards
-* Token security is critical - all tokens must be encrypted at rest and in transit
-* Azure permission verification is essential for the debug_error functionality in Epic 2
-* Consider implementing proper error handling for network failures during Azure API calls
 
 ---
 
@@ -148,52 +155,38 @@ sequenceDiagram
 
 > **Epic Goal**: Implement the `debug_error` tool that autonomously analyzes errors and provides complete solutions in a single response on the authentication foundation built in Epic 1, receiving a single request from the IDE AI agent.
 
-#### **Story 2: Complete Error Analysis and Debugging Solution**
-* **As a** KT developer,
-* **I want** to call a single `debug_error` endpoint with all necessary context (error info, source code, auth token) and receive a comprehensive analysis that autonomously investigates Azure resources and provides actionable solutions,
-* **so that** I can get a complete debugging analysis in one transaction without multiple interactions, and my IDE AI agent can interpret the results to help me fix the problem immediately.
+### **Story 2.1: `debug_error` API Endpoint Implementation**
+* **As an** IDE AI Agent,
+* **I want** to call a single `debug_error` endpoint with all necessary context (error info, source code, auth token),
+* **so that** I can get a complete debugging analysis in one transaction without multiple interactions.
 
 **Acceptance Criteria:**
 1. An API endpoint for `debug_error` exists on the AZEBAL server.
 2. The endpoint properly receives and validates the `access_token`, `error_summary`, and `extra_source_code` parameters.
 3. When requesting with an invalid AZEBAL access token, it returns a 401 Unauthorized error.
-4. When receiving a `debug_error` request, generate a **unique 'trace_id'** and record it in logs to indicate the start of the analysis process.
-5. Before starting analysis, record the list of **Azure resource types and names to investigate (analysis plan)** in logs. (e.g., `PLANNING - Check ACR 'myAcrRepo'`, `PLANNING - Check AppContainer 'myApp' status`)
-6. When calling Azure APIs according to the analysis plan, record **specific details about which resource was targeted and what information was queried** in logs. (e.g., `CALLING - Get ACR 'myAcrRepo' permissions`)
-7. Record in logs that **data was successfully collected from Azure API calls or expected errors (e.g., 403 Forbidden) were received**.
-8. All these processes must be completed **without any additional user interaction** after the initial request.
-9. AZEBAL's final response is delivered as a single API response.
-10. The response content has a clear structure of "Analysis Results", "Debugging Process", and "Actions to Take".
-11. "Actions to Take" is written in plain text that is easy for humans to understand while being suitable for IDE AI agents (Cursor) to interpret and take follow-up actions like code modification suggestions. (e.g., "ACR permission check results show that the image path in value.yaml does not match the actual repository name in Azure, so modification is needed.")
 
-**Test Cases:**
-* **TC2.1**: Verify that `debug_error` endpoint exists and accepts required parameters
-* **TC2.2**: Verify that invalid access tokens return 401 Unauthorized error
-* **TC2.3**: Verify that valid requests generate unique trace_id and log the start of analysis
-* **TC2.4**: Verify that analysis plan is created and logged before Azure API calls
-* **TC2.5**: Verify that Azure API calls are made according to the analysis plan
-* **TC2.6**: Verify that Azure API responses are properly logged (success and error cases)
-* **TC2.7**: Verify that the entire process completes without additional user interaction
-* **TC2.8**: Verify that final response has proper structure (Analysis Results, Debugging Process, Actions to Take)
-* **TC2.9**: Verify that Actions to Take are written in plain text suitable for IDE AI agents
-* **TC2.10**: Verify end-to-end debug_error flow with real Azure resources
+### **Story 2.2: Autonomous Context-based Resource Analysis**
+* **As an** AZEBAL system,
+* **I want** to autonomously perform a series of analysis steps (like multiple Azure API calls) based on the initial context provided,
+* **so that** I can gather all necessary data for a diagnosis without asking the user for more information.
 
-**Out of Scope:**
-* Advanced machine learning models for error pattern recognition beyond basic analysis
-* Integration with external debugging tools or third-party analysis services
-* Real-time monitoring and alerting capabilities
-* Historical error tracking and trend analysis
-* Custom error resolution templates or knowledge base integration
-* Multi-tenant error analysis or cross-user error correlation
-* Advanced visualization of debugging results
+**Acceptance Criteria:**
+1. When receiving a `debug_error` request, generate a **unique 'trace_id'** and record it in logs to indicate the start of the analysis process.
+2. Before starting analysis, record the list of **Azure resource types and names to investigate (analysis plan)** in logs.
+3. When calling Azure APIs according to the analysis plan, record **specific details about which resource was targeted and what information was queried** in logs.
+4. Record in logs that **data was successfully collected from Azure API calls or expected errors (e.g., 403 Forbidden) were received**.
+5. All these processes must be completed **without any additional user interaction** after the initial request.
 
-**Notes:**
-* This story combines the complete error analysis flow from API endpoint through final response generation
-* The autonomous analysis capability is critical - no user interaction should be required after the initial request
-* Comprehensive logging is essential for debugging and monitoring the analysis process
-* The response format must be optimized for both human readability and AI agent interpretation
-* Consider implementing timeout mechanisms for long-running Azure API calls
-* Error handling should gracefully handle Azure API failures and provide meaningful feedback
+### **Story 2.3: Comprehensive Analysis Report Generation and Single Response**
+* **As a** KT developer,
+* **I want** to receive a single, comprehensive response from `debug_error` that includes the analysis results, debugging process, and a clear, actionable solution,
+* **so that** my IDE AI agent can interpret it and help me fix the problem immediately.
+
+**Acceptance Criteria:**
+1. AZEBAL's final response is delivered as a single API response.
+2. The response content has a clear structure of "Analysis Results", "Debugging Process", and "Actions to Take".
+3. "Actions to Take" is written in plain text that is easy for humans to understand while being suitable for IDE AI agents (Cursor) to interpret and take follow-up actions like code modification suggestions.
+
 
 ---
 

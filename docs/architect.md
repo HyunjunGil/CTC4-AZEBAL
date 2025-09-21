@@ -1,7 +1,7 @@
 # AZEBAL Architecture Document
 
-**Document Version:** 1.0
-**Created:** September 18, 2025
+**Document Version:** 2.0
+**Created:** September 21, 2025
 **Author:** Winston (Architect)
 
 ## 1. Introduction
@@ -17,12 +17,13 @@ After reviewing the PRD, AZEBAL is a **completely new (Greenfield) project** bui
 | Date | Version | Description | Author |
 | :--- | :--- | :--- | :--- |
 | 2025-09-18 | 1.0 | Initial document creation | Winston (Architect) |
+| 2025-09-21 | 2.0 | Modified authentication method from MS OAuth 2.0 to Azure CLI token-based authentication per PRD v2.0 | Winston (Architect) |
 
 ## 2. High Level Architecture
 
 ### 2.1. Technical Summary
 
-AZEBAL adopts a **monolithic architecture implemented within a monorepo** for development speed and deployment simplicity in the initial MVP phase. A single application server built using Python and FastMCP library receives requests from IDE AI agents through a ZTNA security gateway. The server authenticates users through an OAuth 2.0 authentication module integrated with MS ID Platform, and queries real-time resource information from KT's Azure environment through Azure API clients on behalf of authenticated users. The collected information is processed by a core analysis engine, which then delivers the final diagnostic results back to the IDE agent.
+AZEBAL adopts a **monolithic architecture implemented within a monorepo** for development speed and deployment simplicity in the initial MVP phase. A single application server built using Python and FastMCP library receives requests from IDE AI agents through a ZTNA security gateway. The server authenticates users by **validating Azure CLI access tokens directly passed by users**, and queries real-time resource information from KT's Azure environment through Azure API clients on behalf of authenticated users. The collected information is processed by a core analysis engine, which then delivers the final diagnostic results back to the IDE agent.
 
 ### 2.2. High Level Overview
 
@@ -30,10 +31,10 @@ The core of this architecture is to maximize development efficiency in the MVP p
 
 The core user interaction flow is as follows:
 
-1. **Request**: IDE agent sends `login` or `debug_error` requests to AZEBAL server through ZTNA.
-2. **Authentication**: The `Auth` module communicates with MS ID Platform to authenticate users and manage sessions.
-3. **Analysis**: The `LLM Engine` analyzes requests and queries necessary Azure resource information through `Azure API Client`.
-4. **Response**: The `LLM Engine` synthesizes analysis results to generate final responses and delivers them back to the IDE agent.
+1. **Authentication**: User passes Azure CLI access token to the `login` tool.
+2. **Session Creation**: The `Auth` module validates the token and creates a session in Redis, then issues an AZEBAL-specific JWT token.
+3. **Analysis Request**: IDE agent sends `debug_error` request with AZEBAL JWT token.
+4. **Analysis and Response**: The `LLM Engine` analyzes the request, queries Azure resource information through `Azure API Client`, and generates the final response.
 
 ### 2.3. High Level Project Diagram
 
@@ -62,7 +63,7 @@ graph TD
     B -- "Secure Connection" --> C
     C -- "Request Routing" --> D
     C -- "Request Routing" --> E
-    D -- "MS Account Authentication" --> G
+    D -- "Azure Token Validation" --> G
     E -- "Resource Information Query" --> F
     F -- "Azure API Call" --> H
 ```
@@ -91,7 +92,7 @@ graph TD
 | **Language** | Python | 3.11.x | Primary development language | Rich AI/ML ecosystem and excellent Azure SDK support. |
 | **Framework** | FastMCP | Latest stable version | MCP server protocol implementation | PRD requirement. Standardizes communication with IDE agents. |
 | **LLM Engine** | Azure OpenAI Service | GPT-4 | Core debugging and reasoning engine | PRD requirement. Highest level of language understanding and reasoning capabilities. |
-| **Authentication** | MS ID Platform | OAuth 2.0 | User authentication and authorization | PRD requirement. Integration with KT internal MS accounts, high security. |
+| **Authentication** | **Azure CLI Access Token** | N/A | **User authentication and authorization** | **PRD v2.0 requirement. Development efficiency and stability.** |
 | **Session Storage**| Redis | 7.x | User session management | In-memory storage providing fast performance and scalability. |
 | **Vector DB** | Azure Cognitive Search + pgvector | Service-based / Latest | (Phase 2) RAG system database | PRD requirement. Excellent integration and scalability as Azure native service. |
 | **Local DB** | MariaDB | 10.x | Local environment test database | Provides RDBMS environment similar to production (PostgreSQL) to improve test accuracy. |
@@ -106,15 +107,14 @@ The AZEBAL system uses PostgreSQL for structured data storage and Redis for fast
 
 ### 4.1. UserSession (in Redis)
 
-* **Purpose**: After a user successfully authenticates, stores and manages information (tokens, expiration time, etc.) needed for the AZEBAL server to call Azure APIs on behalf of that user **in Redis**. This model is the core of AZEBAL's stateful session management.
+* **Purpose**: After a user successfully authenticates, stores and manages information (tokens, expiration time, etc.) needed for the AZEBAL server to call Azure APIs on behalf of that user **in Redis**.
 * **Storage Format**: Stored as **Key-Value** format within Redis.
-    * **Key**: `session:{session_id}`
+    * **Key**: `session:{user_object_id}`
     * **Value**: **Hash** or **JSON String** containing all attributes of `UserSession`.
 * **Key Attributes**:
-    * `user_principal_name` (string): ID that uniquely identifies the user.
-    * `ms_access_token` (string, encrypted): Access token issued by Microsoft, used for Azure API calls. **Must be encrypted before storage.**
-    * `ms_refresh_token` (string, encrypted): Refresh token for renewing MS access tokens without re-login when expired. **Also encrypted before storage.**
-    * `expires_at` (datetime): Expiration time of MS access token. (Integrated with Redis TTL functionality)
+    * `user_principal_name` (string): ID that uniquely identifies the user (e.g., UPN).
+    * `azure_access_token` (string, encrypted): Azure access token passed by the user, used for Azure API calls. **Must be encrypted before storage.**
+    * `expires_at` (datetime): Expiration time of Azure access token. (Integrated with Redis TTL functionality)
     * `created_at` (datetime): Session creation time.
 
 ## 5. Components
@@ -127,7 +127,7 @@ The AZEBAL monolithic server consists of the following core components logically
 
 ### 5.2. Auth Module (Authentication Module)
 
-* **Responsibility**: Responsible for OAuth 2.0 communication with Microsoft ID Platform and session management through Redis.
+* **Responsibility**: Responsible for validating Azure CLI access tokens passed by users and session management through Redis.
 
 ### 5.3. LLM Engine (LLM Engine)
 
@@ -139,29 +139,62 @@ The AZEBAL monolithic server consists of the following core components logically
 
 ## 6. External APIs
 
-* **Microsoft Identity Platform API**: User authentication and authorization processing.
-* **Azure Resource Manager (ARM) API**: Real-time Azure resource information query.
+* **Azure Resource Manager (ARM) API**: Real-time Azure resource information query and **user token validation**.
 * **Confluence Cloud REST API (Phase 2)**: Knowledge base construction for RAG system.
 
 ## 7. Core Workflows
 
-### 7.1. Workflow 1: User Authentication (Epic 1)
+### 7.1. Modified Authentication Flow
 
+#### Text Flow
+1. User: `az login` (Azure authentication in local environment)
+2. User: Execute `az account get-access-token` to issue Azure Access Token
+3. User: Pass the issued Azure Access Token to AZEBAL `login` tool
+4. AZEBAL server: Validate Azure Access Token and store encrypted in Redis
+5. AZEBAL server: Issue user-specific AZEBAL JWT token and return
+6. User: Use AZEBAL JWT for `debug_error` tool
+
+#### Modified Authentication Flow Diagram
 ```mermaid
 sequenceDiagram
+    participant User as User (Local)
+    participant CLI as Azure CLI
     participant Agent as IDE AI Agent
-    participant Server as AZEBAL Server
-    participant Redis
-    participant Microsoft as MS ID Platform
+    participant AZEBAL as AZEBAL MCP Server
+    participant Redis as Redis Session Store
+    participant Azure as Azure Management API
 
-    Agent->>Server: 1. login request
-    Server->>Agent: 2. Return MS login URL
-    Note over Agent, Microsoft: 3. User logs in through browser<br>and delivers auth code to agent
-    Agent->>Server: 4. Deliver auth code
-    Server->>Microsoft: 5. Request MS access token with auth code
-    Microsoft-->>Server: 6. Return MS access token
-    Server->>Redis: 7. Store UserSession info (encrypted tokens, etc.)
-    Server-->>Agent: 8. Return AZEBAL-specific token (login success)
+    Note over User, CLI: 1. Local Azure Authentication
+    User->>CLI: az login
+    CLI-->>User: Azure authentication complete
+
+    Note over User, CLI: 2. Access Token Issuance
+    User->>CLI: az account get-access-token
+    CLI-->>User: Azure Access Token returned
+
+    Note over User, AZEBAL: 3. AZEBAL Login
+    User->>Agent: Call login tool (with Azure Access Token)
+    Agent->>AZEBAL: Pass Azure Access Token
+
+    Note over AZEBAL, Azure: 4. Token Validation and User Info Extraction
+    AZEBAL->>Azure: Query user info with Azure Access Token
+    Azure-->>AZEBAL: Return user info (Object ID, UPN, etc.)
+
+    Note over AZEBAL, Redis: 5. Session Creation and Token Storage
+    AZEBAL->>Redis: Create user session (store encrypted Azure Access Token)
+    AZEBAL->>AZEBAL: Generate AZEBAL JWT token
+    AZEBAL-->>Agent: Return AZEBAL JWT token
+    Agent-->>User: "Login successful" message
+
+    Note over User, Azure: 6. When using debug_error
+    User->>Agent: Call debug_error tool (AZEBAL JWT + error info)
+    Agent->>AZEBAL: Debugging request
+    AZEBAL->>Redis: Query user session with AZEBAL JWT
+    Redis-->>AZEBAL: Return encrypted Azure Access Token
+    AZEBAL->>Azure: Query Azure resources with user Azure Access Token
+    Azure-->>AZEBAL: Return Azure resource information
+    AZEBAL-->>Agent: Return analysis results
+    Agent-->>User: Display debugging results
 ```
 
 ### 7.2. Workflow 2: Error Debugging (Epic 2)
@@ -190,9 +223,9 @@ sequenceDiagram
 
 ### 8.1. Redis Schema: `UserSession`
 
-* **Key Format**: `session:{session_id}`
+* **Key Format**: `session:{user_object_id}`
 * **Data Type**: Hash
-* **Value (Hash Fields)**: `user_principal_name`, `ms_access_token` (encrypted), `ms_refresh_token` (encrypted), `expires_at`, `created_at`
+* **Value (Hash Fields)**: `user_principal_name`, `azure_access_token` (encrypted), `expires_at`, `created_at`
 
 ### 8.2. PostgreSQL Schema (For Phase 2 & Logging)
 
@@ -282,7 +315,7 @@ azebal/
 ## 14. Security
 
 * **Input Validation**: `Pydantic` for strict validation at the API boundary.
-* **Auth**: OAuth 2.0 and RBAC.
+* **Auth**: Azure CLI Token Validation and RBAC.
 * **Secrets**: Azure Key Vault for production, `.env` file for local development.
 * **Data Protection**: Encryption at rest (for tokens in Redis) and in transit (TLS 1.2+).
 * **Dependencies**: Automated vulnerability scanning with tools like `safety`.
@@ -296,4 +329,4 @@ azebal/
 
 **Developer Agent Prompt:**
 
-> The architecture design for the AZEBAL project has been completed. Please begin MVP development based on the attached **PRD** and **Architecture Document**. Proceed with implementation starting from **Story 1.1** of **Epic 1** in order. You must comply with the **'Source Tree'**, **'Coding Standards'**, and **'Test Strategy'** sections of the architecture document when writing code. All code must include 100% type hints and generate unit test code using `Pytest` together.
+> The architecture design for the AZEBAL project has been completed. Please begin MVP development based on the attached **PRD v2.0** and **modified architecture document**. Proceed with implementation starting from **Story 1.1** of **Epic 1** in order. You must comply with the **'Source Tree'**, **'Coding Standards'**, and **'Test Strategy'** sections of the architecture document when writing code. All code must include 100% type hints and generate unit test code using `Pytest` together.
