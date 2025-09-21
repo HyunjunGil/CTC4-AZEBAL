@@ -1,0 +1,17 @@
+# Development Dependencies
+-r requirements.txt
+
+# Code Quality Tools
+black
+flake8
+mypy
+isort
+
+# Security Tools
+pre-commit>=3.5.0
+safety>=2.3.0
+bandit>=1.7.0
+
+# Additional Development Tools
+setuptools
+wheel
