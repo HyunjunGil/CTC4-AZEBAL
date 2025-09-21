@@ -28,20 +28,25 @@ try:
         
         print(f"🚀 Starting AZEBAL MCP server with SSE transport on {host}:{port}")
         
-        # FastMCP uses run() or run_async() for different transports
-        # SSE is deprecated, but we'll use streamable-http instead which is preferred
+        # FastMCP 2.0.0 uses sse_app() method to get Starlette app
+        # Then we run it with uvicorn
         try:
-            # Use streamable-http transport with custom path
-            server.run(transport="streamable-http", host=host, port=port, path="/azebal/mcp")
+            app = server.sse_app()
+            print(f"✅ SSE app created successfully")
+            print(f"🌐 Server will be available at: http://{host}:{port}/sse/")
+            print(f"📡 MCP endpoint: http://{host}:{port}/sse/")
+            
+            # Run the Starlette app with uvicorn
+            uvicorn.run(
+                app,
+                host=host,
+                port=port,
+                log_level="info"
+            )
         except Exception as e:
-            print(f"⚠️  Streamable HTTP failed: {e}")
-            print("Trying SSE transport (deprecated)...")
-            try:
-                server.run(transport="sse", host=host, port=port)
-            except Exception as e2:
-                print(f"⚠️  SSE also failed: {e2}")
-                print("Falling back to stdio mode...")
-                server.run()
+            print(f"⚠️  SSE transport failed: {e}")
+            print("Falling back to stdio mode...")
+            server.run()
     
     if __name__ == "__main__":
         main()

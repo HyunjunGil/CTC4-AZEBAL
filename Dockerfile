@@ -19,6 +19,7 @@ COPY environment.yml .
 # Extract pip dependencies from environment.yml and install them
 RUN pip install \
     fastmcp \
+    uvicorn \
     click \
     structlog \
     pytest \
@@ -33,10 +34,10 @@ COPY . .
 # Ensure proper permissions
 RUN chmod +x run_mcp_server.py run_mcp_server_sse.py
 
-# Expose port for SSE transport
+# Expose port for HTTP/SSE transport
 EXPOSE 8000
 
 # Health check removed - MCP server handles its own health monitoring
 
-# Default command - run with SSE transport
+# Default command - run with SSE transport (using uvicorn)
 CMD ["python", "run_mcp_server_sse.py"]

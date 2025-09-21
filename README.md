@@ -177,19 +177,46 @@ DB_NAME=azebal_dev
 
 ## 🎮 **Usage**
 
-### Cursor IDE Integration
+AZEBAL supports two distinct transport methods for different use cases. Choose the method that best fits your needs:
 
-AZEBAL integrates seamlessly with Cursor IDE through the Model Context Protocol (MCP). Follow these steps to connect AZEBAL to Cursor:
+## 📡 **Transport Methods**
 
-#### Step 1: Configure Cursor MCP Settings
+### 1. **stdio Transport** (Recommended for IDE Integration)
+
+**Best for**: Cursor IDE, VSCode, and other IDE integrations
+**Communication**: Direct process communication
+**Setup**: Simple command-based configuration
+
+### 2. **HTTP Transport** (Recommended for Web/Production)
+
+**Best for**: Web applications, Docker deployments, production environments
+**Communication**: HTTP with streamable transport
+**Setup**: URL-based configuration
+
+---
+
+## 🔌 **stdio Transport Setup**
+
+### **Step 1: Start the stdio Server**
+
+```bash
+# Activate conda environment
+conda activate azebal
+
+# Navigate to AZEBAL directory
+cd /path/to/your/AZEBAL
+
+# Start stdio server
+python run_mcp_server.py
+```
+
+### **Step 2: Configure Cursor IDE**
 
 1. **Open Cursor MCP configuration file**:
    - **macOS/Linux**: `~/.cursor/mcp.json`
    - **Windows**: `%APPDATA%\Cursor\mcp.json`
 
-2. **Add AZEBAL server configuration**:
-
-   **Option A: stdio Transport (Recommended for Cursor)**
+2. **Add stdio configuration**:
    ```json
    {
      "mcpServers": {
@@ -202,73 +229,106 @@ AZEBAL integrates seamlessly with Cursor IDE through the Model Context Protocol 
    }
    ```
 
-   **Option B: HTTP Transport (Streamable-HTTP)**
+   **Important**: Replace `/path/to/your/AZEBAL` with your actual absolute path
+
+### **Step 3: Test stdio Connection**
+
+1. **Restart Cursor IDE**
+2. **Open any file in Cursor**
+3. **Start a chat with the AI assistant**
+4. **Test the connection**:
+   ```
+   Can you use the greeting tool from AZEBAL?
+   ```
+
+**Expected Result**: The AI should return "hello" from the greeting function
+
+### **Step 4: Verify stdio Setup**
+
+```bash
+# Test server creation manually
+python -c "from src.server import create_mcp_server; server = create_mcp_server(); print('✅ stdio Server OK')"
+
+# Check if server runs without errors
+python run_mcp_server.py
+# (Should start and wait for input, press Ctrl+C to stop)
+```
+
+---
+
+## 🌐 **HTTP Transport Setup**
+
+### **Step 1: Start the HTTP Server**
+
+```bash
+# Activate conda environment
+conda activate azebal
+
+# Navigate to AZEBAL directory
+cd /path/to/your/AZEBAL
+
+# Start HTTP server
+python run_mcp_server_sse.py
+```
+
+**Server will start on**: `http://localhost:8000/sse/`
+
+### **Step 2: Configure Cursor IDE (HTTP Mode)**
+
+1. **Open Cursor MCP configuration file**:
+   - **macOS/Linux**: `~/.cursor/mcp.json`
+   - **Windows**: `%APPDATA%\Cursor\mcp.json`
+
+2. **Add HTTP configuration**:
    ```json
    {
      "mcpServers": {
        "azebal": {
          "type": "http",
-         "url": "http://localhost:8000/azebal/mcp",
+         "url": "http://localhost:8000/sse/",
          "headers": {}
        }
      }
    }
    ```
 
-   **Important**: 
-   - Replace `/path/to/your/AZEBAL` with the actual absolute path to your AZEBAL project directory
-   - For HTTP transport, ensure the server is running with `python run_mcp_server_sse.py`
+### **Step 3: Test HTTP Connection**
 
-#### Step 2: Restart Cursor
-
-After adding the configuration, restart Cursor IDE to load the AZEBAL MCP server.
-
-#### Step 3: Test the Connection
-
-1. Open any file in Cursor
-2. Start a chat with the AI assistant
-3. Type a message to test the greeting tool:
+1. **Restart Cursor IDE**
+2. **Open any file in Cursor**
+3. **Start a chat with the AI assistant**
+4. **Test the connection**:
    ```
    Can you use the greeting tool from AZEBAL?
    ```
 
-The AI assistant should be able to access AZEBAL's tools and return "hello" from the greeting function.
+**Expected Result**: The AI should return "hello" from the greeting function
 
-### Available Tools
+### **Step 4: Verify HTTP Setup**
 
-Current AZEBAL tools accessible through Cursor:
+```bash
+# Test MCP endpoint directly
+curl -X POST http://localhost:8000/sse/ \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test-client", "version": "1.0.0"}}}'
 
-- **`greeting`**: A test tool that returns "hello" (for testing connectivity)
+# Test greeting tool
+curl -X POST http://localhost:8000/sse/ \
+  -H "Content-Type: application/json" \
+  -H "Accept: application/json, text/event-stream" \
+  -d '{"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "greeting", "arguments": {}}}'
+```
 
-*Future tools planned*:
-- **`login`**: Authenticate user and establish Azure session
-- **`debug_error`**: Comprehensive Azure error analysis and debugging
+**Expected Results**:
+- Initialize call should return server capabilities
+- Greeting tool call should return "hello"
 
-### Transport Methods
+---
 
-AZEBAL supports two MCP transport methods:
+## 🐳 **Docker Deployment (HTTP Transport Only)**
 
-1. **stdio** (recommended for Cursor): Direct process communication
-   ```bash
-   python run_mcp_server.py
-   ```
-   - **URL**: Process-based communication (no URL needed)
-   - **Use Case**: IDE integrations like Cursor
-   - **Configuration**: Command-based in `mcp.json`
-
-2. **Streamable-HTTP** (for web-based integrations): HTTP with streamable transport
-   ```bash
-   python run_mcp_server_sse.py
-   ```
-   - **URL**: `http://localhost:8000/azebal/mcp`
-   - **Use Case**: Web applications, Docker deployments
-   - **Configuration**: HTTP-based in `mcp.json`
-
-### Docker Deployment
-
-For production or containerized deployments, AZEBAL provides a complete Docker setup:
-
-#### **Quick Start with Docker**
+### **Quick Start with Docker**
 
 ```bash
 # Build Docker image
@@ -289,7 +349,7 @@ docker ps --filter name=azebal-mcp-server
 docker logs azebal-mcp-server
 ```
 
-#### **Using Docker Compose (Recommended)**
+### **Using Docker Compose (Recommended)**
 
 ```bash
 # Start with docker-compose
@@ -305,102 +365,118 @@ docker-compose logs -f azebal-mcp
 docker-compose down
 ```
 
-#### **Testing Docker Deployment**
+### **Test Docker Deployment**
 
 ```bash
 # Test MCP endpoint
-curl -X POST http://localhost:8000/azebal/mcp \
+curl -X POST http://localhost:8000/sse/ \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -d '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test-client", "version": "1.0.0"}}}'
 
-# Test greeting tool (requires session management)
-curl -X POST http://localhost:8000/azebal/mcp \
+# Test greeting tool
+curl -X POST http://localhost:8000/sse/ \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -d '{"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "greeting", "arguments": {}}}'
 ```
 
-#### **Docker Configuration Details**
+---
 
-**Container Features:**
-- **Base Image**: Python 3.11-slim
-- **Transport**: Streamable-HTTP on port 8000
-- **Endpoint**: `http://localhost:8000/azebal/mcp`
-- **Health Check**: HTTP GET to `/azebal/mcp` endpoint
-- **Restart Policy**: `unless-stopped`
+## 🛠️ **Available Tools**
 
-**Environment Variables:**
-- `MCP_HOST=0.0.0.0` - Bind to all interfaces
-- `MCP_PORT=8000` - HTTP port
-- `PYTHONPATH=/app` - Python path configuration
+### **Current Tools**
+- **`greeting`**: A test tool that returns "hello" (for testing connectivity)
 
-**Volume Mounts (Development):**
-- `./src:/app/src:ro` - Read-only source code mounting for development
+### **Planned Tools**
+- **`login`**: Authenticate user and establish Azure session
+- **`debug_error`**: Comprehensive Azure error analysis and debugging
 
-### Troubleshooting MCP Connection
+---
 
-If AZEBAL doesn't appear in Cursor or you encounter connection issues:
+## 🔧 **Troubleshooting**
+
+### **stdio Transport Issues**
 
 1. **Verify Python Environment**:
    ```bash
-   # Ensure you're in the correct conda environment
    conda activate azebal
-   
-   # Test the server manually (stdio)
    cd /path/to/AZEBAL
    python run_mcp_server.py
-   
-   # Or test HTTP server
-   python run_mcp_server_sse.py
    ```
 
 2. **Check File Paths**:
-   - Ensure the `cwd` path in `mcp.json` points to your actual AZEBAL directory
-   - Use absolute paths, not relative paths
-   - On Windows, use forward slashes or escape backslashes
+   - Ensure absolute paths in `mcp.json`
+   - Use forward slashes on Windows
+   - Verify `cwd` points to correct directory
 
-3. **Verify Cursor Configuration**:
+3. **Test Server Creation**:
    ```bash
-   # Check if mcp.json exists and is valid JSON
+   python -c "from src.server import create_mcp_server; server = create_mcp_server(); print('✅ Server OK')"
+   ```
+
+### **HTTP Transport Issues**
+
+1. **Verify Server is Running**:
+   ```bash
+   # Check if port 8000 is in use
+   lsof -i :8000  # macOS/Linux
+   netstat -an | findstr :8000  # Windows
+   ```
+
+2. **Test HTTP Endpoint**:
+   ```bash
+   curl -X POST http://localhost:8000/sse/ \
+     -H "Content-Type: application/json" \
+     -d '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test-client", "version": "1.0.0"}}}'
+   ```
+
+3. **Check Server Logs**:
+   ```bash
+   # For local server
+   python run_mcp_server_sse.py
+   
+   # For Docker
+   docker logs azebal-mcp-server
+   ```
+
+### **Cursor IDE Issues**
+
+1. **Verify Configuration**:
+   ```bash
+   # Check mcp.json exists and is valid JSON
    cat ~/.cursor/mcp.json  # macOS/Linux
    type %APPDATA%\Cursor\mcp.json  # Windows
    ```
 
-4. **Test MCP Server Manually**:
-   ```bash
-   # Test server creation
-   python -c "from src.server import create_mcp_server; server = create_mcp_server(); print('✅ Server OK')"
-   
-   # Test HTTP endpoint (if using HTTP transport)
-   curl -X POST http://localhost:8000/azebal/mcp \
-     -H "Content-Type: application/json" \
-     -H "Accept: application/json, text/event-stream" \
-     -d '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test-client", "version": "1.0.0"}}}'
-   ```
-
-5. **Docker Troubleshooting**:
-   ```bash
-   # Check container status
-   docker ps -a --filter name=azebal-mcp-server
-   
-   # View container logs
-   docker logs azebal-mcp-server
-   
-   # Check container health
-   docker inspect azebal-mcp-server | grep -A 5 "Health"
-   
-   # Restart container if needed
-   docker restart azebal-mcp-server
-   
-   # Remove and recreate container
-   docker stop azebal-mcp-server && docker rm azebal-mcp-server
-   docker run -d --name azebal-mcp-server -p 8000:8000 azebal-mcp:latest
-   ```
-
-6. **Check Cursor Logs**:
+2. **Check Cursor Logs**:
    - Open Cursor Developer Tools (`Cmd+Shift+I` on macOS, `Ctrl+Shift+I` on Windows/Linux)
    - Look for MCP-related error messages in the console
+
+3. **Restart Cursor**:
+   - Close Cursor completely
+   - Restart Cursor IDE
+   - Test connection again
+
+### **Docker Issues**
+
+```bash
+# Check container status
+docker ps -a --filter name=azebal-mcp-server
+
+# View container logs
+docker logs azebal-mcp-server
+
+# Check container health
+docker inspect azebal-mcp-server | grep -A 5 "Health"
+
+# Restart container
+docker restart azebal-mcp-server
+
+# Remove and recreate container
+docker stop azebal-mcp-server && docker rm azebal-mcp-server
+docker run -d --name azebal-mcp-server -p 8000:8000 azebal-mcp:latest
+```
 
 ## 🧪 **Testing**
 
