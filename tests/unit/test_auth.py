@@ -15,7 +15,7 @@ class TestAzureAuthService:
     
     def setup_method(self):
         """Set up test fixtures."""
-        self.auth_service = AzureAuthService(subscription_id="test-subscription")
+        self.auth_service = AzureAuthService()
     
     @patch('httpx.Client')
     def test_validate_access_token_success(self, mock_client_class):

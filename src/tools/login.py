@@ -97,7 +97,7 @@ def login_tool(azure_access_token: str) -> Dict[str, Any]:
             }
 
         # Initialize services
-        auth_service = AzureAuthService(subscription_id=settings.azure_subscription_id)
+        auth_service = AzureAuthService()
         jwt_service = JWTService()
 
         # Authenticate user with Azure
