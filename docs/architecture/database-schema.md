@@ -2,9 +2,9 @@
 
 ## 8.1. Redis Schema: `UserSession`
 
-* **Key Format**: `session:{session_id}`
+* **Key Format**: `session:{user_object_id}`
 * **Data Type**: Hash
-* **Value (Hash Fields)**: `user_principal_name`, `ms_access_token` (encrypted), `ms_refresh_token` (encrypted), `expires_at`, `created_at`
+* **Value (Hash Fields)**: `user_principal_name`, `azure_access_token` (encrypted), `expires_at`, `created_at`
 
 ## 8.2. PostgreSQL Schema (For Phase 2 & Logging)
 

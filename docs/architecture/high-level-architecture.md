@@ -2,7 +2,7 @@
 
 ## 2.1. Technical Summary
 
-AZEBAL adopts a **monolithic architecture implemented within a monorepo** for development speed and deployment simplicity in the initial MVP phase. A single application server built using Python and FastMCP library receives requests from IDE AI agents through a ZTNA security gateway. The server authenticates users through an OAuth 2.0 authentication module integrated with MS ID Platform, and queries real-time resource information from KT's Azure environment through Azure API clients on behalf of authenticated users. The collected information is processed by a core analysis engine, which then delivers the final diagnostic results back to the IDE agent.
+AZEBAL adopts a **monolithic architecture implemented within a monorepo** for development speed and deployment simplicity in the initial MVP phase. A single application server built using Python and FastMCP library receives requests from IDE AI agents through a ZTNA security gateway. The server authenticates users by **validating Azure CLI access tokens directly passed by users**, and queries real-time resource information from KT's Azure environment through Azure API clients on behalf of authenticated users. The collected information is processed by a core analysis engine, which then delivers the final diagnostic results back to the IDE agent.
 
 ## 2.2. High Level Overview
 
@@ -10,10 +10,10 @@ The core of this architecture is to maximize development efficiency in the MVP p
 
 The core user interaction flow is as follows:
 
-1. **Request**: IDE agent sends `login` or `debug_error` requests to AZEBAL server through ZTNA.
-2. **Authentication**: The `Auth` module communicates with MS ID Platform to authenticate users and manage sessions.
-3. **Analysis**: The `LLM Engine` analyzes requests and queries necessary Azure resource information through `Azure API Client`.
-4. **Response**: The `LLM Engine` synthesizes analysis results to generate final responses and delivers them back to the IDE agent.
+1. **Authentication**: User passes Azure CLI access token to the `login` tool.
+2. **Session Creation**: The `Auth` module validates the token and creates a session in Redis, then issues an AZEBAL-specific JWT token.
+3. **Analysis Request**: IDE agent sends `debug_error` request with AZEBAL JWT token.
+4. **Analysis and Response**: The `LLM Engine` analyzes the request, queries Azure resource information through `Azure API Client`, and generates the final response.
 
 ## 2.3. High Level Project Diagram
 
@@ -42,7 +42,7 @@ graph TD
     B -- "Secure Connection" --> C
     C -- "Request Routing" --> D
     C -- "Request Routing" --> E
-    D -- "MS Account Authentication" --> G
+    D -- "Azure Token Validation" --> G
     E -- "Resource Information Query" --> F
     F -- "Azure API Call" --> H
 ```

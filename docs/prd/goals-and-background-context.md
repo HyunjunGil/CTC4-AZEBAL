@@ -15,5 +15,6 @@ Currently, KT's Azure developers are wasting unnecessary time and resources due 
 | Date | Version | Description | Author |
 | :--- | :--- | :--- | :--- |
 | 2025-09-18 | 1.0 | Initial document creation | John (PM) |
+| 2025-09-21 | 2.0 | Modified login method from MS OAuth 2.0 to Azure CLI token-based authentication | John (PM) |
 
 ---

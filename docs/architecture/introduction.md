@@ -11,3 +11,4 @@ After reviewing the PRD, AZEBAL is a **completely new (Greenfield) project** bui
 | Date | Version | Description | Author |
 | :--- | :--- | :--- | :--- |
 | 2025-09-18 | 1.0 | Initial document creation | Winston (Architect) |
+| 2025-09-21 | 2.0 | Modified authentication method from MS OAuth 2.0 to Azure CLI token-based authentication per PRD v2.0 | Winston (Architect) |

@@ -8,7 +8,7 @@ The AZEBAL monolithic server consists of the following core components logically
 
 ## 5.2. Auth Module (Authentication Module)
 
-* **Responsibility**: Responsible for OAuth 2.0 communication with Microsoft ID Platform and session management through Redis.
+* **Responsibility**: Responsible for validating Azure CLI access tokens passed by users and session management through Redis.
 
 ## 5.3. LLM Engine (LLM Engine)
 
