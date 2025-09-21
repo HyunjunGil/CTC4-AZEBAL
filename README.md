@@ -55,6 +55,8 @@ azebal/
 │   ├── integration/      # Integration tests
 │   ├── e2e/              # End-to-end tests
 │   └── fixtures/         # Test data and fixtures
+├── requirements.txt      # Python dependencies
+├── requirements-dev.txt  # Development dependencies
 ├── environment.yml       # Conda environment specification
 ├── environment.template  # Environment variables template
 ├── pytest.ini           # Pytest configuration
@@ -66,7 +68,7 @@ azebal/
 ### Prerequisites
 
 - **Python 3.11+**
-- **Conda** (recommended for environment management)
+- **Conda** (for environment management)
 - **Azure CLI** (for authentication - Phase 1)
 - **Azure Account** with appropriate permissions (Phase 1)
 - **Redis Server** (for session storage - Phase 2)
@@ -79,10 +81,15 @@ azebal/
    cd AZEBAL
    ```
 
-2. **Create conda environment**
+2. **Set up Python environment**
    ```bash
+   # Create conda environment
    conda env create -f environment.yml
    conda activate azebal
+   
+   # Or if environment already exists
+   conda activate azebal
+   pip install -r requirements.txt
    ```
 
 3. **Configure environment**
@@ -102,6 +109,9 @@ azebal/
 
 5. **Run the MCP server**
    ```bash
+   # Activate conda environment
+   conda activate azebal
+   
    # Run with stdio transport (default)
    python run_mcp_server.py
    
@@ -114,7 +124,7 @@ azebal/
 1. **Install development dependencies**
    ```bash
    conda activate azebal
-   pip install -e .
+   pip install -r requirements-dev.txt
    ```
 
 2. **Run tests**
