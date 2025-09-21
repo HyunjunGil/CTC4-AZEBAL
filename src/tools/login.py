@@ -5,6 +5,8 @@ MCP tool for authenticating users with Azure access tokens.
 """
 
 from typing import Dict, Any
+import hashlib
+import re
 
 from src.core.auth import AzureAuthService
 from src.core.jwt_service import JWTService
@@ -12,6 +14,30 @@ from src.core.config import settings
 from src.core.logging_config import get_logger
 
 logger = get_logger(__name__)
+
+
+def safe_token_hash(token: str) -> str:
+    """토큰을 안전하게 해시화하여 로깅용으로 사용"""
+    if not token or len(token) < 10:
+        return "***INVALID***"
+    
+    # 앞 6글자 + 해시 8글자로 식별 가능하면서 안전한 형태
+    prefix = token[:6]
+    token_hash = hashlib.sha256(token.encode()).hexdigest()[:8]
+    return f"{prefix}...{token_hash}"
+
+
+def sanitize_error_message(message: str) -> str:
+    """에러 메시지에서 토큰 같은 민감한 정보 제거"""
+    # JWT 패턴 제거 (eyJ로 시작하는 긴 문자열)
+    jwt_pattern = r'eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+'
+    message = re.sub(jwt_pattern, '[REDACTED_TOKEN]', message)
+    
+    # Bearer 토큰 패턴 제거
+    bearer_pattern = r'Bearer\s+[A-Za-z0-9_-]+'
+    message = re.sub(bearer_pattern, 'Bearer [REDACTED]', message)
+    
+    return message
 
 
 def login_tool(azure_access_token: str) -> Dict[str, Any]:
@@ -55,8 +81,20 @@ def login_tool(azure_access_token: str) -> Dict[str, Any]:
         ... else:
         ...     print(f"Login failed: {result['message']}")
     """
+    # 토큰 해시 생성 (로깅용)
+    token_hash = safe_token_hash(azure_access_token)
+    
     try:
-        logger.info("Starting login process with Azure access token")
+        logger.info(f"Starting login process for token: {token_hash}")
+
+        # 기본 유효성 검사
+        if not azure_access_token or not azure_access_token.strip():
+            logger.warning(f"Empty token provided: {token_hash}")
+            return {
+                "success": False,
+                "message": "Azure access token is required",
+                "error": "EMPTY_TOKEN",
+            }
 
         # Initialize services
         auth_service = AzureAuthService(subscription_id=settings.azure_subscription_id)
@@ -66,21 +104,22 @@ def login_tool(azure_access_token: str) -> Dict[str, Any]:
         is_authenticated, user_info = auth_service.authenticate_user(azure_access_token)
 
         if not is_authenticated or not user_info:
-            logger.warning("Authentication failed")
+            logger.warning(f"Authentication failed for token: {token_hash}")
             return {
                 "success": False,
-                "message": "Authentication failed. Please check your Azure access token.",
+                "message": "Authentication failed. Please verify your Azure access token and permissions.",
                 "error": "INVALID_TOKEN",
             }
 
         # Create AZEBAL JWT token
         try:
             azebal_token = jwt_service.create_token(user_info)
-            logger.info(f"Login successful for user: {user_info.user_principal_name}")
+            
+            logger.info(f"Login successful for user: {user_info.user_principal_name} (token: {token_hash})")
 
             return {
                 "success": True,
-                "message": "Login successful",
+                "message": f"Login successful for {user_info.user_principal_name}",
                 "azebal_token": azebal_token,
                 "user_info": {
                     "object_id": user_info.object_id,
@@ -92,7 +131,8 @@ def login_tool(azure_access_token: str) -> Dict[str, Any]:
             }
 
         except Exception as e:
-            logger.error(f"Error creating AZEBAL token: {e}")
+            error_msg = sanitize_error_message(str(e))
+            logger.error(f"Error creating AZEBAL token for user (token: {token_hash}): {error_msg}")
             return {
                 "success": False,
                 "message": "Login failed due to internal error",
@@ -100,7 +140,8 @@ def login_tool(azure_access_token: str) -> Dict[str, Any]:
             }
 
     except Exception as e:
-        logger.error(f"Unexpected error during login: {e}")
+        error_msg = sanitize_error_message(str(e))
+        logger.error(f"Unexpected error during login for token {token_hash}: {error_msg}")
         return {
             "success": False,
             "message": "Login failed due to unexpected error",

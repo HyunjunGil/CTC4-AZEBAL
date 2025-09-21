@@ -33,10 +33,17 @@ class Settings(BaseSettings):
 
     # Logging Configuration
     log_level: str = Field(default="INFO", description="Logging level")
+    secure_logging: bool = Field(default=False, description="Enable secure logging mode")
+
+    # MCP Server Configuration
+    mcp_port: int = Field(default=8443, description="MCP server port")
+    mcp_http_port: int = Field(default=8000, description="MCP HTTP server port")
+    use_https: bool = Field(default=False, description="Use HTTPS for MCP server")
 
     model_config = ConfigDict(
         env_file=".env",
-        env_file_encoding="utf-8"
+        env_file_encoding="utf-8",
+        extra="ignore"  # Ignore extra environment variables that aren't defined
     )
 
 
