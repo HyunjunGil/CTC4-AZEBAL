@@ -12,7 +12,7 @@
 | :--- | :--- | :--- | :--- | :--- |
 | **Language** | Python | 3.11.x | Primary development language | Rich AI/ML ecosystem and excellent Azure SDK support. |
 | **Framework** | FastMCP | Latest stable version | MCP server protocol implementation | PRD requirement. Standardizes communication with IDE agents. |
-| **LLM Engine** | Azure OpenAI Service | GPT-4 | Core debugging and reasoning engine | PRD requirement. Highest level of language understanding and reasoning capabilities. |
+| **LLM Engine** | Azure OpenAI Service | GPT-4 | Core debugging and reasoning engine with function calling | PRD requirement. Highest level of language understanding and autonomous decision-making capabilities. |
 | **Authentication** | **Azure CLI Access Token** | N/A | **User authentication and authorization** | **PRD v2.0 requirement. Development efficiency and stability.** |
 | **Session Storage**| Redis | 7.x | User session management | In-memory storage providing fast performance and scalability. |
 | **Vector DB** | Azure Cognitive Search + pgvector | Service-based / Latest | (Phase 2) RAG system database | PRD requirement. Excellent integration and scalability as Azure native service. |

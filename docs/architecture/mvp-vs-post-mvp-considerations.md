@@ -4,16 +4,19 @@
 
 **Included in MVP:**
 - ✅ In-memory session cache for debug sessions
-- ✅ Basic AI agent control mechanisms (time/depth limits)
+- ✅ Autonomous AI agent with function calling capabilities
+- ✅ Multi-layer safety controls (time/depth/resource limits)
 - ✅ Four-state flow control (done|request|continue|fail)
+- ✅ Comprehensive Azure API client with resource-specific debugging
 - ✅ Essential security (input validation, sensitive data filtering)
 - ✅ Basic error handling and logging
+- ✅ Performance optimization (caching, function prioritization)
 
 **MVP Limitations (Acceptable for Value Validation):**
-- 🔄 Sessions lost on server restart
+- 🔄 Sessions lost on server restart (in-memory cache only)
 - 🔄 Single server deployment only
 - 🔄 Basic memory management without advanced optimization
-- 🔄 Simple retry mechanisms
+- 🔄 Limited Azure service coverage (extensible framework in place)
 
 ## 16.2. Post-MVP Production Readiness Backlog
 

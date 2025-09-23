@@ -160,10 +160,11 @@ class DebugSession:
 
 ### 7.2.4. AI Agent Control Mechanisms
 
-**Control Parameters:**
+**Control Parameters (Optimized for Cursor Timeout Constraints):**
 - `MAX_DEPTH = 5`: Maximum exploration steps to prevent infinite loops
-- `TIME_LIMIT_SECONDS = 40`: Per-call time limit to prevent timeouts
-- `MAX_AZURE_API_CALLS = 20`: Limit on Azure API calls per session
+- `TIME_LIMIT_SECONDS = 40`: Per-call time limit to prevent Cursor timeouts
+- `MAX_FUNCTION_CALLS = 8`: Limit on function calls per session
+- `MAX_FUNCTION_TIME = 8`: Maximum time per individual function call
 
 **Control Logic:**
 ```python
@@ -184,3 +185,9 @@ async def analyze_with_controls(session, context):
     # Max depth reached
     return create_continue_response(session)
 ```
+
+**Safety Features:**
+- **Multi-layer Safety System**: Time, resource, and behavior limits
+- **Graceful Degradation**: Fallback responses when functions fail
+- **Admin Suggestions**: AI recommends missing capabilities for enhancement
+- **Resource Monitoring**: Memory usage tracking and cleanup

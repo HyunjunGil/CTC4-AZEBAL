@@ -55,3 +55,7 @@ graph TD
     * *Rationale*: By abstracting the API call portion, it becomes easy to mock API calls during unit testing and flexibly respond to future API specification changes.
 * **Facade Pattern**: The `FastMCP Interface` serves as a single entry point that wraps complex internal modules (authentication, LLM engine, etc.).
     * *Rationale*: External clients (IDE agents) can use all AZEBAL functionality through a simple and consistent interface without needing to know the server's complex internal structure.
+* **Function Calling Pattern**: The autonomous AI agent uses function calling to independently decide which Azure APIs to call based on error analysis.
+    * *Rationale*: Enables truly autonomous debugging without requiring human intervention for each analysis step.
+* **Session Memory Pattern**: In-memory session cache maintains context across multiple function calls and analysis iterations.
+    * *Rationale*: Complex debugging often requires multiple steps and context preservation between API calls.
