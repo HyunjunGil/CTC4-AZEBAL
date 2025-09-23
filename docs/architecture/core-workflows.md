@@ -55,22 +55,132 @@ sequenceDiagram
 
 ## 7.2. Workflow 2: Error Debugging (Epic 2)
 
+### 7.2.1. High-Level Debug Flow
+
 ```mermaid
 sequenceDiagram
     participant Agent as IDE AI Agent
     participant Server as AZEBAL Server
-    participant Redis
+    participant SessionCache as Session Memory Cache
+    participant LLM as LLM Engine
     participant Azure as KT Azure Environment
 
-    Agent->>Server: 1. debug_error request (AZEBAL token, error info, code included)
+    Agent->>Server: 1. debug_error request (AZEBAL token, error info, context)
     Server->>Server: 2. Validate AZEBAL token
-    Server->>Redis: 3. Query session info (MS token, etc.)
-    Redis-->>Server: 4. Return session info
-    Server->>Server: 5. LLM Engine: Establish analysis plan
-    loop Multiple API calls
-        Server->>Azure: 6. Azure API call (using MS token)
-        Azure-->>Server: 7. Return resource info
+    Server->>SessionCache: 3. Create/retrieve debug session
+    SessionCache-->>Server: 4. Return session context
+    Server->>LLM: 5. Initialize analysis with time/depth limits
+    
+    loop Analysis Loop (MAX_DEPTH=5, TIME_LIMIT=40s)
+        LLM->>SessionCache: 6. Check previous exploration results
+        LLM->>Azure: 7. Query Azure resources (if needed)
+        Azure-->>LLM: 8. Return resource information
+        LLM->>SessionCache: 9. Store analysis progress
+        
+        alt Time/Depth limit reached
+            LLM-->>Server: Continue status (partial results)
+        else Solution found
+            LLM-->>Server: Done status (complete solution)
+        else Need user input
+            LLM-->>Server: Request status (ask for more info)
+        else Analysis failed
+            LLM-->>Server: Fail status (exhausted options)
+        end
     end
-    Server->>Server: 8. LLM Engine: Synthesize all info to generate final result
-    Server-->>Agent: 9. Return analysis result report
+    
+    Server-->>Agent: 10. Return structured response with status
+    
+    opt If status = "continue"
+        Agent->>Server: debug_error_continue (trace_id)
+        Note over Server, LLM: Resume analysis from stored state
+    end
+```
+
+### 7.2.2. API Design Specifications
+
+**debug_error API Input:**
+```json
+{
+  "azebal_token": "string",
+  "error_description": "string", 
+  "context": {
+    "source_files": [
+      {
+        "path": "string",
+        "content": "string",
+        "relevance": "primary|secondary|config",
+        "size_bytes": "number"
+      }
+    ],
+    "environment_info": {
+      "azure_subscription": "string",
+      "resource_group": "string", 
+      "technologies": ["array", "of", "strings"]
+    }
+  }
+}
+```
+
+**Response Format:**
+```json
+{
+  "status": "done|request|continue|fail",
+  "trace_id": "string",
+  "message": "string",
+  "progress": "number (optional, 0-100)"
+}
+```
+
+**debug_error_continue API:**
+- Same input format but requires `trace_id` instead of `error_description`
+- Uses stored session context to resume analysis
+- Same response format
+
+### 7.2.3. Session Memory Management (MVP)
+
+**Architecture**: In-memory session cache for MVP
+- **Storage**: Python dictionary with trace_id as key
+- **Lifecycle**: Created on first debug_error, maintained through continue calls
+- **Cleanup**: Automatic removal on "done" or "fail" status
+- **Limitations**: Sessions lost on server restart (acceptable for MVP)
+
+**Session Data Structure:**
+```python
+class DebugSession:
+    trace_id: str
+    user_id: str
+    error_description: str
+    context: Dict[str, Any]
+    exploration_history: List[Dict]
+    azure_api_calls: List[Dict]
+    analysis_depth: int
+    start_time: datetime
+    last_activity: datetime
+```
+
+### 7.2.4. AI Agent Control Mechanisms
+
+**Control Parameters:**
+- `MAX_DEPTH = 5`: Maximum exploration steps to prevent infinite loops
+- `TIME_LIMIT_SECONDS = 40`: Per-call time limit to prevent timeouts
+- `MAX_AZURE_API_CALLS = 20`: Limit on Azure API calls per session
+
+**Control Logic:**
+```python
+async def analyze_with_controls(session, context):
+    start_time = time.time()
+    
+    for depth in range(MAX_DEPTH):
+        # Time limit check
+        if time.time() - start_time > TIME_LIMIT_SECONDS:
+            return create_continue_response(session)
+            
+        # Execute AI analysis step
+        result = await execute_analysis_step(session, context)
+        
+        if result.type in ["SOLUTION_FOUND", "USER_INPUT_NEEDED", "ANALYSIS_FAILED"]:
+            return create_final_response(session, result)
+    
+    # Max depth reached
+    return create_continue_response(session)
 ```

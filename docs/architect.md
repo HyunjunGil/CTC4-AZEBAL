@@ -199,24 +199,134 @@ sequenceDiagram
 
 ### 7.2. Workflow 2: Error Debugging (Epic 2)
 
+#### 7.2.1. High-Level Debug Flow
+
 ```mermaid
 sequenceDiagram
     participant Agent as IDE AI Agent
     participant Server as AZEBAL Server
-    participant Redis
+    participant SessionCache as Session Memory Cache
+    participant LLM as LLM Engine
     participant Azure as KT Azure Environment
 
-    Agent->>Server: 1. debug_error request (AZEBAL token, error info, code included)
+    Agent->>Server: 1. debug_error request (AZEBAL token, error info, context)
     Server->>Server: 2. Validate AZEBAL token
-    Server->>Redis: 3. Query session info (MS token, etc.)
-    Redis-->>Server: 4. Return session info
-    Server->>Server: 5. LLM Engine: Establish analysis plan
-    loop Multiple API calls
-        Server->>Azure: 6. Azure API call (using MS token)
-        Azure-->>Server: 7. Return resource info
+    Server->>SessionCache: 3. Create/retrieve debug session
+    SessionCache-->>Server: 4. Return session context
+    Server->>LLM: 5. Initialize analysis with time/depth limits
+    
+    loop Analysis Loop (MAX_DEPTH=5, TIME_LIMIT=40s)
+        LLM->>SessionCache: 6. Check previous exploration results
+        LLM->>Azure: 7. Query Azure resources (if needed)
+        Azure-->>LLM: 8. Return resource information
+        LLM->>SessionCache: 9. Store analysis progress
+        
+        alt Time/Depth limit reached
+            LLM-->>Server: Continue status (partial results)
+        else Solution found
+            LLM-->>Server: Done status (complete solution)
+        else Need user input
+            LLM-->>Server: Request status (ask for more info)
+        else Analysis failed
+            LLM-->>Server: Fail status (exhausted options)
+        end
     end
-    Server->>Server: 8. LLM Engine: Synthesize all info to generate final result
-    Server-->>Agent: 9. Return analysis result report
+    
+    Server-->>Agent: 10. Return structured response with status
+    
+    opt If status = "continue"
+        Agent->>Server: debug_error_continue (trace_id)
+        Note over Server, LLM: Resume analysis from stored state
+    end
+```
+
+#### 7.2.2. API Design Specifications
+
+**debug_error API Input:**
+```json
+{
+  "azebal_token": "string",
+  "error_description": "string", 
+  "context": {
+    "source_files": [
+      {
+        "path": "string",
+        "content": "string",
+        "relevance": "primary|secondary|config",
+        "size_bytes": "number"
+      }
+    ],
+    "environment_info": {
+      "azure_subscription": "string",
+      "resource_group": "string", 
+      "technologies": ["array", "of", "strings"]
+    }
+  }
+}
+```
+
+**Response Format:**
+```json
+{
+  "status": "done|request|continue|fail",
+  "trace_id": "string",
+  "message": "string",
+  "progress": "number (optional, 0-100)"
+}
+```
+
+**debug_error_continue API:**
+- Same input format but requires `trace_id` instead of `error_description`
+- Uses stored session context to resume analysis
+- Same response format
+
+#### 7.2.3. Session Memory Management (MVP)
+
+**Architecture**: In-memory session cache for MVP
+- **Storage**: Python dictionary with trace_id as key
+- **Lifecycle**: Created on first debug_error, maintained through continue calls
+- **Cleanup**: Automatic removal on "done" or "fail" status
+- **Limitations**: Sessions lost on server restart (acceptable for MVP)
+
+**Session Data Structure:**
+```python
+class DebugSession:
+    trace_id: str
+    user_id: str
+    error_description: str
+    context: Dict[str, Any]
+    exploration_history: List[Dict]
+    azure_api_calls: List[Dict]
+    analysis_depth: int
+    start_time: datetime
+    last_activity: datetime
+```
+
+#### 7.2.4. AI Agent Control Mechanisms
+
+**Control Parameters:**
+- `MAX_DEPTH = 5`: Maximum exploration steps to prevent infinite loops
+- `TIME_LIMIT_SECONDS = 40`: Per-call time limit to prevent timeouts
+- `MAX_AZURE_API_CALLS = 20`: Limit on Azure API calls per session
+
+**Control Logic:**
+```python
+async def analyze_with_controls(session, context):
+    start_time = time.time()
+    
+    for depth in range(MAX_DEPTH):
+        # Time limit check
+        if time.time() - start_time > TIME_LIMIT_SECONDS:
+            return create_continue_response(session)
+            
+        # Execute AI analysis step
+        result = await execute_analysis_step(session, context)
+        
+        if result.type in ["SOLUTION_FOUND", "USER_INPUT_NEEDED", "ANALYSIS_FAILED"]:
+            return create_final_response(session, result)
+    
+    # Max depth reached
+    return create_continue_response(session)
 ```
 
 ## 8. Database Schema
@@ -325,8 +435,91 @@ azebal/
 * **Overall Readiness**: High.
 * **Decision**: READY FOR DEVELOPMENT.
 
-## 16. Next Steps
+## 16. MVP vs Post-MVP Considerations
+
+### 16.1. MVP Implementation Scope (Current)
+
+**Included in MVP:**
+- ✅ In-memory session cache for debug sessions
+- ✅ Basic AI agent control mechanisms (time/depth limits)
+- ✅ Four-state flow control (done|request|continue|fail)
+- ✅ Essential security (input validation, sensitive data filtering)
+- ✅ Basic error handling and logging
+
+**MVP Limitations (Acceptable for Value Validation):**
+- 🔄 Sessions lost on server restart
+- 🔄 Single server deployment only
+- 🔄 Basic memory management without advanced optimization
+- 🔄 Simple retry mechanisms
+
+### 16.2. Post-MVP Production Readiness Backlog
+
+**High Priority (Phase 2):**
+1. **Redis-based Session Persistence**
+   - Replace in-memory cache with Redis for session durability
+   - Enable multi-server deployment and horizontal scaling
+   - Implement session recovery capabilities
+
+2. **Advanced Memory Management**
+   - LRU cache with TTL for memory optimization
+   - Memory usage monitoring and alerts
+   - Graceful degradation under memory pressure
+
+3. **Enhanced Observability**
+   - Comprehensive metrics collection (session duration, success rates)
+   - Distributed tracing for debug sessions
+   - Performance monitoring dashboards
+
+**Medium Priority (Phase 3):**
+4. **AI Agent Optimization**
+   - Dynamic time allocation based on problem complexity
+   - Intelligent error classification and routing
+   - Learning from historical debug patterns
+
+5. **Production Security Hardening**
+   - Advanced input sanitization
+   - Rate limiting and abuse prevention
+   - Enhanced encryption for sensitive data
+
+6. **Reliability Improvements**
+   - Circuit breaker pattern for Azure API calls
+   - Exponential backoff with jitter
+   - Comprehensive retry strategies
+
+### 16.3. Migration Path to Production
+
+**Phase 1 → Phase 2 Migration:**
+```python
+# Current MVP: In-memory sessions
+sessions = {}
+
+# Phase 2: Redis-backed sessions
+import redis
+redis_client = redis.Redis()
+
+class SessionManager:
+    def store_session(self, trace_id, session_data):
+        redis_client.setex(f"debug_session:{trace_id}", 3600, json.dumps(session_data))
+    
+    def get_session(self, trace_id):
+        data = redis_client.get(f"debug_session:{trace_id}")
+        return json.loads(data) if data else None
+```
+
+## 17. Next Steps
 
 **Developer Agent Prompt:**
 
-> The architecture design for the AZEBAL project has been completed. Please begin MVP development based on the attached **PRD v2.0** and **modified architecture document**. Proceed with implementation starting from **Story 1.1** of **Epic 1** in order. You must comply with the **'Source Tree'**, **'Coding Standards'**, and **'Test Strategy'** sections of the architecture document when writing code. All code must include 100% type hints and generate unit test code using `Pytest` together.
+> The architecture design for the AZEBAL project has been completed with detailed debug_error API specifications. Please begin MVP development based on the attached **PRD v2.0** and **updated architecture document**. 
+>
+> **Implementation Priority:**
+> 1. Start with **Story 1.1** of **Epic 1** (already completed)
+> 2. Proceed to **Epic 2** implementation using the detailed API design in section 7.2
+> 3. Focus on MVP scope only - defer Post-MVP features to backlog
+>
+> **Technical Requirements:**
+> - Comply with **'Source Tree'**, **'Coding Standards'**, and **'Test Strategy'** sections
+> - All code must include 100% type hints
+> - Generate comprehensive unit tests using `Pytest`
+> - Implement in-memory session management for MVP (no Redis required initially)
+> - Follow the exact API schemas and control mechanisms defined in section 7.2
