@@ -20,8 +20,9 @@ azure-mgmt-containerregistry>=10.0.0
 azure-mgmt-containerinstance>=10.0.0
 azure-mgmt-web>=7.0.0
 
-# OpenAI Integration
+# LLM Integrations
 openai>=1.0.0
+anthropic>=0.25.0
 
 # Security & Authentication
 cryptography>=41.0.0

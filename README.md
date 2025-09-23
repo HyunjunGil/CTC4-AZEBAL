@@ -22,7 +22,7 @@ This project follows a **monolithic architecture** for rapid MVP development:
 - **FastMCP Server**: Single entry point for IDE AI agent communication
 - **Authentication Module**: Azure CLI token-based authentication (Phase 1 Complete ✅)
 - **JWT Service**: AZEBAL-specific JWT token management (Phase 1 Complete ✅)
-- **LLM Engine**: Core error analysis using Azure OpenAI (Phase 2 - Planned)
+- **LLM Engine**: Multi-provider LLM interface (Azure OpenAI, OpenAI, Anthropic) (Phase 1 Complete ✅)
 - **Azure API Client**: Real-time Azure resource queries (Phase 2 - Planned)
 - **Session Management**: Redis-based user session storage (Phase 2 - Planned)
 
@@ -41,14 +41,20 @@ azebal/
 │   ├── main.py           # MCP server entry point
 │   ├── tools/            # MCP tool definitions
 │   │   ├── greeting.py   # Test greeting tool
-│   │   └── login.py      # Azure CLI login tool (Phase 1 Complete ✅)
+│   │   ├── login.py      # Azure CLI login tool (Phase 1 Complete ✅)
+│   │   └── ask_llm.py    # Multi-provider LLM interface (Phase 1 Complete ✅)
 │   ├── core/             # Core business logic
 │   │   ├── auth.py       # Azure authentication service (Phase 1 Complete ✅)
 │   │   ├── jwt_service.py # JWT token management (Phase 1 Complete ✅)
 │   │   ├── config.py     # Configuration management (Phase 1 Complete ✅)
 │   │   └── engine.py     # LLM analysis engine (Phase 2 - Planned)
 │   ├── services/         # External service integrations
-│   │   └── azure_client.py
+│   │   ├── llm_interface.py      # LLM provider interface (Phase 1 Complete ✅)
+│   │   ├── llm_factory.py        # LLM provider factory (Phase 1 Complete ✅)
+│   │   ├── azure_openai_service.py # Azure OpenAI integration (Phase 1 Complete ✅)
+│   │   ├── openai_service.py      # OpenAI integration (Phase 1 Complete ✅)
+│   │   ├── anthropic_service.py   # Anthropic Claude integration (Phase 1 Complete ✅)
+│   │   └── azure_client.py        # Azure API client (Phase 2 - Planned)
 │   └── utils/            # Utility functions
 ├── tests/                # Test suite
 │   ├── unit/             # Unit tests (>80% coverage target)
@@ -459,6 +465,7 @@ curl -X POST http://localhost:8000/sse/ \
 ### **Phase 1 Tools (Complete ✅)**
 - **`greeting`**: A test tool that returns "hello" (for testing connectivity)
 - **`login`**: Authenticate user with Azure CLI access token and get AZEBAL JWT
+- **`ask_llm`**: Ask questions to various LLM providers (Azure OpenAI, OpenAI, Anthropic) - no authentication required
 
 #### **Login Tool Usage Example**
 
@@ -485,6 +492,104 @@ az account get-access-token
   }
 }
 ```
+
+#### **Ask LLM Tool Usage Example**
+
+The `ask_llm` tool provides a simple interface to interact with various LLM providers. It automatically detects and uses available LLM providers based on your configuration.
+
+**Supported LLM Providers:**
+- **Azure OpenAI** (GPT-4, GPT-3.5-turbo)
+- **OpenAI** (GPT-4, GPT-3.5-turbo)
+- **Anthropic** (Claude-3 Sonnet, Claude-3 Haiku)
+
+**Configuration Examples:**
+
+```bash
+# Option 1: Azure OpenAI (recommended for enterprise)
+export AZURE_OPENAI_ENDPOINT="https://your-resource.openai.azure.com/"
+export AZURE_OPENAI_API_KEY="your_azure_openai_api_key"
+export AZURE_OPENAI_DEPLOYMENT_NAME="gpt-4"
+
+# Option 2: OpenAI
+export OPENAI_API_KEY="sk-proj-your_openai_api_key"
+export OPENAI_MODEL_NAME="gpt-4"
+
+# Option 3: Anthropic Claude
+export ANTHROPIC_API_KEY="sk-ant-api03-your_anthropic_api_key"
+export ANTHROPIC_MODEL_NAME="claude-3-sonnet-20240229"
+
+# Optional: Explicitly choose provider (auto-detect if not set)
+export LLM_PROVIDER="anthropic"  # Options: azure_openai, openai, anthropic
+```
+
+**Usage Examples:**
+
+```bash
+# Basic math question
+curl -X POST http://localhost:8000/tools/call \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0", 
+    "id": 1, 
+    "method": "tools/call", 
+    "params": {
+      "name": "ask_llm", 
+      "arguments": {
+        "question": "What is 15 * 23?"
+      }
+    }
+  }'
+
+# Programming question
+curl -X POST http://localhost:8000/tools/call \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0", 
+    "id": 2, 
+    "method": "tools/call", 
+    "params": {
+      "name": "ask_llm", 
+      "arguments": {
+        "question": "Explain the difference between async and sync functions in Python"
+      }
+    }
+  }'
+
+# General knowledge
+curl -X POST http://localhost:8000/tools/call \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0", 
+    "id": 3, 
+    "method": "tools/call", 
+    "params": {
+      "name": "ask_llm", 
+      "arguments": {
+        "question": "Who was Albert Einstein and what was his most famous theory?"
+      }
+    }
+  }'
+```
+
+**Response Format:**
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": "15 * 23 = 345"
+}
+```
+
+**Auto-Detection Priority:**
+1. Azure OpenAI (if both endpoint and API key are configured)
+2. OpenAI (if API key is configured)
+3. Anthropic (if API key is configured)
+
+**Error Handling:**
+- Returns helpful error messages if no LLM provider is configured
+- Suggests which providers are available but not properly configured
+- Gracefully handles API errors with descriptive messages
 
 ### **Phase 2 Tools (Planned)**
 - **`debug_error`**: Comprehensive Azure error analysis and debugging

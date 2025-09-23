@@ -8,6 +8,7 @@ Supports both stdio and SSE transport methods.
 from fastmcp import FastMCP
 from src.tools.greeting import greeting_tool
 from src.tools.login import login_tool
+from src.tools.ask_llm import ask_llm_handler
 from src.core.logging_config import setup_logging, disable_logging
 
 
@@ -106,6 +107,28 @@ def create_mcp_server(disable_logs: bool = False) -> FastMCP:
             }
         """
         return login_tool(azure_access_token)
+
+    # Register the ask_llm tool
+    @mcp.tool()
+    async def ask_llm(question: str) -> str:
+        """
+        Ask any question to the LLM and get a response.
+        
+        This tool provides a simple interface to ask questions to Azure OpenAI.
+        No authentication is required for this tool.
+        
+        Args:
+            question (str): The question to ask the LLM (e.g., 'What is 3 + 3?', 'Who is Albert Einstein?')
+            
+        Returns:
+            str: The LLM's response as plain text
+            
+        Examples:
+            ask_llm("What is 3 + 3?")
+            ask_llm("Who is Albert Einstein?")
+            ask_llm("Explain the concept of machine learning")
+        """
+        return await ask_llm_handler({"question": question})
 
     return mcp
 

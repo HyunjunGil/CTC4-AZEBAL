@@ -13,18 +13,30 @@ JWT_EXPIRATION_HOURS=24
 # Logging Configuration
 LOG_LEVEL=INFO
 
+# ===== LLM CONFIGURATION =====
+# LLM Provider Selection (auto-detect if not set)
+# LLM_PROVIDER=azure_openai  # Options: azure_openai, openai, anthropic
+
+# Azure OpenAI Service
+AZURE_OPENAI_ENDPOINT=https://your-openai-resource.openai.azure.com/
+AZURE_OPENAI_API_KEY=your_azure_openai_api_key
+AZURE_OPENAI_API_VERSION=2024-02-15-preview
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4
+
+# OpenAI Service
+# OPENAI_API_KEY=your_openai_api_key
+# OPENAI_MODEL_NAME=gpt-4
+
+# Anthropic Service
+# ANTHROPIC_API_KEY=your_anthropic_api_key
+# ANTHROPIC_MODEL_NAME=claude-3-sonnet-20240229
+
 # ===== PHASE 2: FUTURE CONFIGURATION (DO NOT USE YET) =====
 # Redis Session Store (Phase 2)
 # REDIS_HOST=localhost
 # REDIS_PORT=6379
 # REDIS_DB=0
 # REDIS_PASSWORD=
-
-# Azure OpenAI Service (Phase 2)
-# AZURE_OPENAI_ENDPOINT=https://your-openai-resource.openai.azure.com/
-# AZURE_OPENAI_API_KEY=your_azure_openai_api_key
-# AZURE_OPENAI_API_VERSION=2024-02-15-preview
-# AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4
 
 # Database (Phase 2)
 # DB_HOST=localhost
