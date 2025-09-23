@@ -76,6 +76,10 @@ graph TD
     * *Rationale*: By abstracting the API call portion, it becomes easy to mock API calls during unit testing and flexibly respond to future API specification changes.
 * **Facade Pattern**: The `FastMCP Interface` serves as a single entry point that wraps complex internal modules (authentication, LLM engine, etc.).
     * *Rationale*: External clients (IDE agents) can use all AZEBAL functionality through a simple and consistent interface without needing to know the server's complex internal structure.
+* **Function Calling Pattern**: The autonomous AI agent uses function calling to independently decide which Azure APIs to call based on error analysis.
+    * *Rationale*: Enables truly autonomous debugging without requiring human intervention for each analysis step.
+* **Session Memory Pattern**: In-memory session cache maintains context across multiple function calls and analysis iterations.
+    * *Rationale*: Complex debugging often requires multiple steps and context preservation between API calls.
 
 ## 3. Tech Stack
 
@@ -91,7 +95,7 @@ graph TD
 | :--- | :--- | :--- | :--- | :--- |
 | **Language** | Python | 3.11.x | Primary development language | Rich AI/ML ecosystem and excellent Azure SDK support. |
 | **Framework** | FastMCP | Latest stable version | MCP server protocol implementation | PRD requirement. Standardizes communication with IDE agents. |
-| **LLM Engine** | Azure OpenAI Service | GPT-4 | Core debugging and reasoning engine | PRD requirement. Highest level of language understanding and reasoning capabilities. |
+| **LLM Engine** | Azure OpenAI Service | GPT-4 | Core debugging and reasoning engine with function calling | PRD requirement. Highest level of language understanding and autonomous decision-making capabilities. |
 | **Authentication** | **Azure CLI Access Token** | N/A | **User authentication and authorization** | **PRD v2.0 requirement. Development efficiency and stability.** |
 | **Session Storage**| Redis | 7.x | User session management | In-memory storage providing fast performance and scalability. |
 | **Vector DB** | Azure Cognitive Search + pgvector | Service-based / Latest | (Phase 2) RAG system database | PRD requirement. Excellent integration and scalability as Azure native service. |
@@ -132,10 +136,16 @@ The AZEBAL monolithic server consists of the following core components logically
 ### 5.3. LLM Engine (LLM Engine)
 
 * **Responsibility**: Performs core business logic for `debug_error` requests, calls `Azure API Client`, and generates final analysis results.
+* **AI Agent Capabilities**: Autonomous function calling with available Azure APIs and debugging tools
+* **Control Mechanisms**: Built-in safety controls (time limits, depth limits, resource limits) to prevent infinite loops
+* **Memory Management**: Session-based context preservation across multiple analysis steps
 
 ### 5.4. Azure API Client (Azure API Client)
 
 * **Responsibility**: Encapsulates all communication with KT Azure environment.
+* **Service Coverage**: Comprehensive support for Compute, Storage, Network, Web Apps, Container Instances
+* **Authentication**: Custom credential wrapper for Azure CLI token integration
+* **Resource Debugging**: Specialized debugging methods for different Azure resource types
 
 ## 6. External APIs
 
@@ -304,10 +314,11 @@ class DebugSession:
 
 #### 7.2.4. AI Agent Control Mechanisms
 
-**Control Parameters:**
+**Control Parameters (Optimized for Cursor Timeout Constraints):**
 - `MAX_DEPTH = 5`: Maximum exploration steps to prevent infinite loops
-- `TIME_LIMIT_SECONDS = 40`: Per-call time limit to prevent timeouts
-- `MAX_AZURE_API_CALLS = 20`: Limit on Azure API calls per session
+- `TIME_LIMIT_SECONDS = 40`: Per-call time limit to prevent Cursor timeouts
+- `MAX_FUNCTION_CALLS = 8`: Limit on function calls per session
+- `MAX_FUNCTION_TIME = 8`: Maximum time per individual function call
 
 **Control Logic:**
 ```python
@@ -328,6 +339,12 @@ async def analyze_with_controls(session, context):
     # Max depth reached
     return create_continue_response(session)
 ```
+
+**Safety Features:**
+- **Multi-layer Safety System**: Time, resource, and behavior limits
+- **Graceful Degradation**: Fallback responses when functions fail
+- **Admin Suggestions**: AI recommends missing capabilities for enhancement
+- **Resource Monitoring**: Memory usage tracking and cleanup
 
 ## 8. Database Schema
 
@@ -409,6 +426,9 @@ azebal/
 * **Model**: Custom Exceptions for business logic, Global Exception Handler for system errors.
 * **Logging**: Standard `logging` module with structured JSON format.
 * **Patterns**: Exponential backoff retry policy for Azure API calls.
+* **Azure API Error Handling**: Centralized error mapping with actionable suggestions for common Azure errors (AuthenticationFailed, ResourceNotFound, InsufficientPermissions, ThrottlingError)
+* **Function Failure Recovery**: Graceful degradation when AI functions fail, with alternative manual debugging steps
+* **Missing Capabilities Management**: AI identifies and suggests new debugging functions when current capabilities are insufficient
 
 ## 12. Coding Standards
 
@@ -429,6 +449,9 @@ azebal/
 * **Secrets**: Azure Key Vault for production, `.env` file for local development.
 * **Data Protection**: Encryption at rest (for tokens in Redis) and in transit (TLS 1.2+).
 * **Dependencies**: Automated vulnerability scanning with tools like `safety`.
+* **AI Operation Security**: Function parameter sanitization, resource access validation, audit logging for autonomous operations
+* **Sensitive Data Protection**: Automatic masking of credentials, connection strings, and API keys in AI responses
+* **Session Isolation**: Complete user session separation for multi-tenant security
 
 ## 15. Checklist Results Report
 
@@ -441,16 +464,19 @@ azebal/
 
 **Included in MVP:**
 - ✅ In-memory session cache for debug sessions
-- ✅ Basic AI agent control mechanisms (time/depth limits)
+- ✅ Autonomous AI agent with function calling capabilities
+- ✅ Multi-layer safety controls (time/depth/resource limits)
 - ✅ Four-state flow control (done|request|continue|fail)
+- ✅ Comprehensive Azure API client with resource-specific debugging
 - ✅ Essential security (input validation, sensitive data filtering)
 - ✅ Basic error handling and logging
+- ✅ Performance optimization (caching, function prioritization)
 
 **MVP Limitations (Acceptable for Value Validation):**
-- 🔄 Sessions lost on server restart
+- 🔄 Sessions lost on server restart (in-memory cache only)
 - 🔄 Single server deployment only
 - 🔄 Basic memory management without advanced optimization
-- 🔄 Simple retry mechanisms
+- 🔄 Limited Azure service coverage (extensible framework in place)
 
 ### 16.2. Post-MVP Production Readiness Backlog
 
