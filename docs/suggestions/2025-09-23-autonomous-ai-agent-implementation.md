@@ -428,7 +428,7 @@ class SecurityValidator:
     def audit_ai_operation(operation: str, params: dict, user_id: str, result: dict):
         """Audit autonomous AI operations for security monitoring."""
         audit_entry = {
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
             "operation": operation,
             "user_id": user_id,
             "parameters": params,
@@ -972,8 +972,8 @@ class DebugSession:
     
     def __init__(self, trace_id: str):
         self.trace_id = trace_id
-        self.created_at = datetime.utcnow()
-        self.last_activity = datetime.utcnow()
+        self.created_at = datetime.now(timezone.utc)
+        self.last_activity = datetime.now(timezone.utc)
         
         # Analysis state
         self.status = "active"  # active, paused, completed, failed
@@ -1000,17 +1000,17 @@ class DebugSession:
         self.function_results[function_name] = result
         self.function_calls.append({
             "function": function_name,
-            "timestamp": datetime.utcnow(),
+            "timestamp": datetime.now(timezone.utc),
             "result_summary": str(result)[:200]  # Truncate for memory efficiency
         })
-        self.last_activity = datetime.utcnow()
+        self.last_activity = datetime.now(timezone.utc)
     
     def add_finding(self, finding: str, severity: str = "info"):
         """Add a finding to the analysis."""
         self.findings.append({
             "finding": finding,
             "severity": severity,
-            "timestamp": datetime.utcnow()
+            "timestamp": datetime.now(timezone.utc)
         })
     
     def get_context_for_llm(self) -> dict:
@@ -1021,7 +1021,7 @@ class DebugSession:
             "function_calls_made": len(self.function_calls),
             "identified_resources": self.identified_resources,
             "key_findings": [f["finding"] for f in self.findings[-5:]],  # Last 5 findings
-            "execution_time": (datetime.utcnow() - self.created_at).total_seconds()
+            "execution_time": (datetime.now(timezone.utc) - self.created_at).total_seconds()
         }
 
 class SessionManager:
@@ -1036,7 +1036,7 @@ class SessionManager:
         """Get existing session or create new one."""
         if trace_id in self.sessions:
             session = self.sessions[trace_id]
-            session.last_activity = datetime.utcnow()
+            session.last_activity = datetime.now(timezone.utc)
             return session
         
         # Clean up expired sessions before creating new one
@@ -1054,7 +1054,7 @@ class SessionManager:
     
     def _cleanup_expired_sessions(self):
         """Remove expired sessions to prevent memory leaks."""
-        current_time = datetime.utcnow()
+        current_time = datetime.now(timezone.utc)
         expired_sessions = [
             trace_id for trace_id, session in self.sessions.items()
             if (current_time - session.last_activity).total_seconds() > self.session_timeout
@@ -1091,7 +1091,7 @@ class SessionManager:
     
     def get_session_stats(self) -> dict:
         """Get session statistics for monitoring."""
-        current_time = datetime.utcnow()
+        current_time = datetime.now(timezone.utc)
         active_count = 0
         expired_count = 0
         
