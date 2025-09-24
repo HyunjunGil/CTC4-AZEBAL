@@ -27,7 +27,7 @@ class TestJWTService:
     
     def test_create_token_success(self):
         """Test successful token creation."""
-        token = self.jwt_service.create_token(self.test_user_info)
+        token = self.jwt_service.create_token(self.test_user_info, "test-azure-token")
         
         assert isinstance(token, str)
         assert len(token) > 0
@@ -42,7 +42,7 @@ class TestJWTService:
         )
         
         assert decoded["sub"] == self.test_user_info.object_id
-        assert decoded["upn"] == self.test_user_info.user_principal_name
+        assert decoded["user_principal_name"] == self.test_user_info.user_principal_name
         assert decoded["tenant_id"] == self.test_user_info.tenant_id
         assert decoded["display_name"] == self.test_user_info.display_name
         assert decoded["email"] == self.test_user_info.email
@@ -57,7 +57,7 @@ class TestJWTService:
             tenant_id="test-tenant-id"
         )
         
-        token = self.jwt_service.create_token(minimal_user_info)
+        token = self.jwt_service.create_token(minimal_user_info, "test-azure-token")
         
         assert isinstance(token, str)
         assert len(token) > 0
@@ -72,7 +72,7 @@ class TestJWTService:
         )
         
         assert decoded["sub"] == minimal_user_info.object_id
-        assert decoded["upn"] == minimal_user_info.user_principal_name
+        assert decoded["user_principal_name"] == minimal_user_info.user_principal_name
         assert decoded["tenant_id"] == minimal_user_info.tenant_id
         assert decoded.get("display_name") is None
         assert decoded.get("email") is None
@@ -80,14 +80,14 @@ class TestJWTService:
     def test_validate_token_success(self):
         """Test successful token validation."""
         # Create a valid token
-        token = self.jwt_service.create_token(self.test_user_info)
+        token = self.jwt_service.create_token(self.test_user_info, "test-azure-token")
         
         # Validate the token
         payload = self.jwt_service.validate_token(token)
         
         assert payload is not None
         assert payload["sub"] == self.test_user_info.object_id
-        assert payload["upn"] == self.test_user_info.user_principal_name
+        assert payload["user_principal_name"] == self.test_user_info.user_principal_name
         assert payload["tenant_id"] == self.test_user_info.tenant_id
     
     def test_validate_token_invalid_signature(self):
@@ -97,7 +97,7 @@ class TestJWTService:
         token = jwt.encode(
             {
                 "sub": "test-object-id",
-                "upn": "test@example.com",
+                "user_principal_name": "test@example.com",
                 "tenant_id": "test-tenant-id",
                 "iat": datetime.now(timezone.utc),
                 "exp": datetime.now(timezone.utc) + timedelta(hours=24),
@@ -119,7 +119,7 @@ class TestJWTService:
         token = jwt.encode(
             {
                 "sub": "test-object-id",
-                "upn": "test@example.com",
+                "user_principal_name": "test@example.com",
                 "tenant_id": "test-tenant-id",
                 "iat": expired_time,
                 "exp": expired_time,
@@ -140,7 +140,7 @@ class TestJWTService:
         token = jwt.encode(
             {
                 "sub": "test-object-id",
-                "upn": "test@example.com",
+                "user_principal_name": "test@example.com",
                 "tenant_id": "test-tenant-id",
                 "iat": datetime.now(timezone.utc),
                 "exp": datetime.now(timezone.utc) + timedelta(hours=24),
@@ -161,7 +161,7 @@ class TestJWTService:
         token = jwt.encode(
             {
                 "sub": "test-object-id",
-                "upn": "test@example.com",
+                "user_principal_name": "test@example.com",
                 "tenant_id": "test-tenant-id",
                 "iat": datetime.now(timezone.utc),
                 "exp": datetime.now(timezone.utc) + timedelta(hours=24),
@@ -179,7 +179,7 @@ class TestJWTService:
     def test_get_user_info_from_token_success(self):
         """Test successful user info extraction from token."""
         # Create a valid token
-        token = self.jwt_service.create_token(self.test_user_info)
+        token = self.jwt_service.create_token(self.test_user_info, "test-azure-token")
         
         # Extract user info
         user_info = self.jwt_service.get_user_info_from_token(token)
@@ -207,7 +207,7 @@ class TestJWTService:
         token = jwt.encode(
             {
                 "sub": "test-object-id",
-                # Missing upn and tenant_id
+                # Missing user_principal_name and tenant_id
                 "iat": datetime.now(timezone.utc),
                 "exp": datetime.now(timezone.utc) + timedelta(hours=24),
                 "iss": "azebal",

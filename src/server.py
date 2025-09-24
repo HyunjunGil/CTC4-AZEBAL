@@ -9,6 +9,7 @@ from fastmcp import FastMCP
 from src.tools.greeting import greeting_tool
 from src.tools.login import login_tool
 from src.tools.ask_llm import ask_llm_handler
+from src.tools.debug_error import debug_error_tool
 from src.core.logging_config import setup_logging, disable_logging
 
 
@@ -129,6 +130,59 @@ def create_mcp_server(disable_logs: bool = False) -> FastMCP:
             ask_llm("Explain the concept of machine learning")
         """
         return await ask_llm_handler({"question": question})
+
+    # Register the debug_error tool
+    @mcp.tool()
+    async def debug_error(
+        azebal_token: str,
+        error_description: str,
+        context: dict = None
+    ) -> dict:
+        """
+        Autonomous Azure error debugging and analysis tool.
+        
+        This tool receives error information, autonomously performs debugging analysis
+        using Azure APIs and AI reasoning, and returns comprehensive debugging results.
+        
+        Args:
+            azebal_token (str): AZEBAL JWT token for user authentication (required)
+            error_description (str): Description of the error to debug (max 50KB)
+            context (dict, optional): Additional context including:
+                - source_files: List of source files with path, content, relevance, size_bytes
+                - environment_info: Environment details like azure_subscription, resource_group, technologies
+        
+        Returns:
+            dict: Debugging result containing:
+                - status (str): "done", "request", "continue", or "fail"
+                - trace_id (str): Unique identifier for this debugging session
+                - message (str): Human-readable analysis results and recommendations
+                - progress (int, optional): Progress percentage (0-100)
+                - analysis_results (dict, optional): Structured analysis findings
+                - debugging_process (list, optional): Step-by-step debugging process
+                - actions_to_take (list, optional): Actionable recommendations
+        
+        Example Usage:
+            debug_error(
+                azebal_token="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiIs...",
+                error_description="Azure App Service deployment failed with 500 error",
+                context={
+                    "source_files": [
+                        {
+                            "path": "main.py",
+                            "content": "import os\\nfrom flask import Flask...",
+                            "relevance": "primary",
+                            "size_bytes": 1024
+                        }
+                    ],
+                    "environment_info": {
+                        "azure_subscription": "my-subscription",
+                        "resource_group": "my-rg",
+                        "technologies": ["python", "flask", "app-service"]
+                    }
+                }
+            )
+        """
+        return await debug_error_tool(azebal_token, error_description, context)
 
     return mcp
 
