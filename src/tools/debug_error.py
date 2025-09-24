@@ -325,7 +325,6 @@ async def debug_error_tool(
             # Create autonomous debug agent
             debug_agent = AutonomousDebugAgent(
                 azure_client=azure_client,
-                safety_controller=safety_controller,
                 session=session
             )
             

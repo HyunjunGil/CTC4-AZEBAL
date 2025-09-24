@@ -13,7 +13,7 @@ from enum import Enum
 
 from src.core.logging_config import get_logger
 from src.core.session_manager import DebugSession
-from src.core.safety_controller import SafetyController, GracefulDegradationHandler
+from src.core.safety_controller import safety_controller, GracefulDegradationHandler
 from src.services.llm_factory import llm_factory
 from src.services.azure_api_client import AzureAPIClient
 
@@ -63,7 +63,6 @@ class AutonomousDebugAgent:
     def __init__(
         self, 
         azure_client: AzureAPIClient,
-        safety_controller: SafetyController,
         session: DebugSession
     ):
         """
@@ -71,11 +70,9 @@ class AutonomousDebugAgent:
         
         Args:
             azure_client: Azure API client
-            safety_controller: Safety controller for limits
             session: Debug session
         """
         self.azure_client = azure_client
-        self.safety_controller = safety_controller
         self.session = session
         self.llm_service = llm_factory.get_llm_service()
         
@@ -143,7 +140,7 @@ class AutonomousDebugAgent:
         # Build initial conversation
         messages = self._build_initial_prompt(error_context)
         
-        while not self.safety_controller.should_stop(self.session):
+        while not safety_controller.should_stop(self.session):
             try:
                 # Call LLM with function definitions
                 logger.debug(f"[{self.session.trace_id}] Calling LLM with {len(function_definitions)} functions")
@@ -168,7 +165,7 @@ class AutonomousDebugAgent:
                     self.session.add_function_result(function_result.name, function_result.result)
                     
                     # Record function call for safety
-                    self.safety_controller.record_function_call(
+                    safety_controller.record_function_call(
                         self.session,
                         function_result.name,
                         function_result.execution_time,
@@ -288,7 +285,7 @@ class AutonomousDebugAgent:
         self.session.add_log(f"Executing function: {function_name}")
         
         # Safety check
-        is_safe, reason = self.safety_controller.check_function_safety(
+        is_safe, reason = safety_controller.check_function_safety(
             function_name, arguments, self.session
         )
         
