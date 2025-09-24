@@ -2,31 +2,34 @@
 Ask LLM tool for AZEBAL MCP server.
 
 Provides a simple interface to ask questions to various LLM providers.
+Compatible with FastMCP framework.
 """
 
-import asyncio
 import logging
-from typing import Any
-from mcp import Tool
 from src.services.llm_factory import llm_factory
 
 logger = logging.getLogger(__name__)
 
 
-async def ask_llm_handler(arguments: dict[str, Any]) -> str:
+async def ask_llm_tool(question: str) -> str:
     """
     Ask a question to the LLM and get a response.
     
+    This tool provides a simple interface to ask questions to various LLM providers.
+    No authentication is required for this tool.
+    
     Args:
-        arguments: Dictionary containing:
-            - question (str): The question to ask the LLM
+        question (str): The question to ask the LLM (e.g., 'What is 3 + 3?', 'Who is Albert Einstein?')
             
     Returns:
-        The LLM's response as a string
+        str: The LLM's response as plain text
+        
+    Examples:
+        ask_llm_tool("What is 3 + 3?")
+        ask_llm_tool("Who is Albert Einstein?")
+        ask_llm_tool("Explain the concept of machine learning")
     """
-    question = arguments.get("question", "").strip()
-    
-    if not question:
+    if not question or not question.strip():
         return "Error: Please provide a question to ask the LLM."
     
     try:
@@ -49,22 +52,7 @@ async def ask_llm_handler(arguments: dict[str, Any]) -> str:
         return response
         
     except Exception as e:
-        logger.error(f"Error in ask_llm_handler: {str(e)}")
+        logger.error(f"Error in ask_llm_tool: {str(e)}")
         return f"Error: {str(e)}"
 
 
-# Tool definition
-ask_llm_tool = Tool(
-    name="ask_llm",
-    description="Ask any question to the LLM and get a response. Supports multiple LLM providers (Azure OpenAI, OpenAI, Anthropic). No authentication required.",
-    inputSchema={
-        "type": "object",
-        "properties": {
-            "question": {
-                "type": "string",
-                "description": "The question to ask the LLM (e.g., 'What is 3 + 3?', 'Who is Albert Einstein?')"
-            }
-        },
-        "required": ["question"]
-    }
-)
