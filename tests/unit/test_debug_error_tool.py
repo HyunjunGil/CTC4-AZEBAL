@@ -353,5 +353,167 @@ class TestDebugErrorTool:
         assert "MISSING_AZURE_TOKEN" in result["error"]
 
 
+class TestSessionContinuation:
+    """Test session continuation functionality."""
+    
+    @pytest.mark.asyncio
+    @patch('src.tools.debug_error.session_manager')
+    @patch('src.tools.debug_error.JWTService')
+    async def test_debug_error_tool_with_valid_session_id(self, mock_jwt_service_class, mock_session_manager):
+        """Test debug_error_tool with valid existing session_id."""
+        # Setup mocks
+        mock_jwt_service = Mock()
+        mock_jwt_service_class.return_value = mock_jwt_service
+        mock_jwt_service.verify_token.return_value = {
+            "user_principal_name": "test@example.com"
+        }
+        mock_jwt_service.get_azure_access_token.return_value = "azure_token"
+        
+        # Setup existing session
+        existing_session = DebugSession(
+            trace_id="existing-session-123",
+            user_principal_name="test@example.com",
+            error_description="Previous error",
+            context={}
+        )
+        mock_session_manager.get_session.return_value = existing_session
+        
+        # Setup rest of the mocks
+        with patch('src.tools.debug_error.SensitiveDataFilter') as mock_filter, \
+             patch('src.tools.debug_error._create_analysis_plan') as mock_plan, \
+             patch('src.tools.debug_error.AzureAPIClient') as mock_azure_client, \
+             patch('src.tools.debug_error.safety_controller') as mock_safety, \
+             patch('src.tools.debug_error.AutonomousDebugAgent') as mock_agent:
+            
+            mock_filter.filter_sensitive_data.return_value = {}
+            mock_plan.return_value = {"analysis_steps": []}
+            mock_safety.start_analysis.return_value = None
+            mock_safety.check_safety_limits.return_value = True
+            
+            mock_agent_instance = AsyncMock()
+            mock_agent.return_value = mock_agent_instance
+            
+            # Mock the analysis result object
+            mock_analysis_result = Mock()
+            mock_analysis_result.status.value = "done"
+            mock_analysis_result.trace_id = "existing-session-123"
+            mock_analysis_result.message = "Analysis completed"
+            mock_analysis_result.progress = 100
+            mock_analysis_result.analysis_results = {"findings": ["Test finding"]}
+            mock_analysis_result.debugging_process = ["Step 1", "Step 2"]
+            mock_analysis_result.actions_to_take = ["Test recommendation"]
+            
+            mock_agent_instance.analyze_error.return_value = mock_analysis_result
+            
+            result = await debug_error_tool(
+                azebal_token="valid.token",
+                error_description="New error description",
+                context={},
+                session_id="existing-session-123"
+            )
+            
+            # Verify session was retrieved, not created
+            mock_session_manager.get_session.assert_called_once_with("existing-session-123")
+            mock_session_manager.create_session.assert_not_called()
+            
+            assert result["status"] == "done"
+            assert result["trace_id"] == "existing-session-123"
+    
+    @pytest.mark.asyncio
+    @patch('src.tools.debug_error.session_manager')
+    @patch('src.tools.debug_error.JWTService')
+    async def test_debug_error_tool_with_invalid_session_id(self, mock_jwt_service_class, mock_session_manager):
+        """Test debug_error_tool with invalid/non-existent session_id."""
+        # Setup mocks
+        mock_jwt_service = Mock()
+        mock_jwt_service_class.return_value = mock_jwt_service
+        mock_jwt_service.verify_token.return_value = {
+            "user_principal_name": "test@example.com"
+        }
+        mock_jwt_service.get_azure_access_token.return_value = "azure_token"
+        
+        # Session not found
+        mock_session_manager.get_session.return_value = None
+        
+        result = await debug_error_tool(
+            azebal_token="valid.token",
+            error_description="Test error",
+            context={},
+            session_id="non-existent-session-123"
+        )
+        
+        # Verify session lookup was attempted
+        mock_session_manager.get_session.assert_called_once_with("non-existent-session-123")
+        
+        assert result["status"] == "fail"
+        assert result["trace_id"] == "non-existent-session-123"
+        assert "Session not found" in result["message"]
+        assert result["error"] == "SESSION_NOT_FOUND"
+    
+    @pytest.mark.asyncio
+    @patch('src.tools.debug_error.session_manager')
+    @patch('src.tools.debug_error.JWTService')
+    async def test_debug_error_tool_without_session_id_creates_new(self, mock_jwt_service_class, mock_session_manager):
+        """Test debug_error_tool without session_id creates new session."""
+        # Setup mocks
+        mock_jwt_service = Mock()
+        mock_jwt_service_class.return_value = mock_jwt_service
+        mock_jwt_service.verify_token.return_value = {
+            "user_principal_name": "test@example.com"
+        }
+        mock_jwt_service.get_azure_access_token.return_value = "azure_token"
+        
+        # Setup new session creation
+        new_session = DebugSession(
+            trace_id="new-session-456",
+            user_principal_name="test@example.com",
+            error_description="Test error",
+            context={}
+        )
+        mock_session_manager.create_session.return_value = new_session
+        
+        # Setup rest of the mocks
+        with patch('src.tools.debug_error.SensitiveDataFilter') as mock_filter, \
+             patch('src.tools.debug_error._create_analysis_plan') as mock_plan, \
+             patch('src.tools.debug_error.AzureAPIClient') as mock_azure_client, \
+             patch('src.tools.debug_error.safety_controller') as mock_safety, \
+             patch('src.tools.debug_error.AutonomousDebugAgent') as mock_agent:
+            
+            mock_filter.filter_sensitive_data.return_value = {}
+            mock_plan.return_value = {"analysis_steps": []}
+            mock_safety.start_analysis.return_value = None
+            mock_safety.check_safety_limits.return_value = True
+            
+            mock_agent_instance = AsyncMock()
+            mock_agent.return_value = mock_agent_instance
+            
+            # Mock the analysis result object  
+            mock_analysis_result = Mock()
+            mock_analysis_result.status.value = "done"
+            mock_analysis_result.trace_id = "new-session-456"  # Use new session ID
+            mock_analysis_result.message = "Analysis completed"
+            mock_analysis_result.progress = 100
+            mock_analysis_result.analysis_results = {"findings": ["Test finding"]}
+            mock_analysis_result.debugging_process = ["Step 1", "Step 2"]
+            mock_analysis_result.actions_to_take = ["Test recommendation"]
+            
+            mock_agent_instance.analyze_error.return_value = mock_analysis_result
+            
+            result = await debug_error_tool(
+                azebal_token="valid.token",
+                error_description="Test error",
+                context={}
+                # No session_id provided
+            )
+            
+            # Verify new session was created, not retrieved
+            mock_session_manager.get_session.assert_not_called()
+            mock_session_manager.create_session.assert_called_once()
+            
+            assert result["status"] == "done"
+            # trace_id should be the new session's ID
+            assert "trace_id" in result
+
+
 if __name__ == "__main__":
     pytest.main([__file__])

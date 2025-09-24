@@ -249,42 +249,6 @@ class TestSessionManager:
         session = manager.get_session("nonexistent-trace-id")
         assert session is None
     
-    def test_get_or_create_session_existing(self):
-        """Test get_or_create with existing session."""
-        manager = SessionManager()
-        
-        # Create session
-        original = manager.create_session(
-            user_principal_name="test@example.com",
-            error_description="Test error",
-            context={}
-        )
-        trace_id = original.trace_id
-        
-        # Get or create should return existing
-        retrieved = manager.get_or_create_session(
-            trace_id=trace_id,
-            user_principal_name="different@example.com"  # Should be ignored
-        )
-        
-        assert retrieved.trace_id == trace_id
-        assert retrieved.user_principal_name == "test@example.com"  # Original value
-    
-    def test_get_or_create_session_new(self):
-        """Test get_or_create with new session."""
-        manager = SessionManager()
-        
-        session = manager.get_or_create_session(
-            trace_id="new-trace-123",
-            user_principal_name="test@example.com",
-            error_description="Test error",
-            context={"test": "data"}
-        )
-        
-        assert session.trace_id == "new-trace-123"
-        assert session.user_principal_name == "test@example.com"
-        assert "new-trace-123" in manager.sessions
-    
     def test_delete_session(self):
         """Test deleting a session."""
         manager = SessionManager()

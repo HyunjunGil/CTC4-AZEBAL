@@ -141,7 +141,8 @@ class SensitiveDataFilter:
 async def debug_error_tool(
     azebal_token: str,
     error_description: str,
-    context: Optional[Dict[str, Any]] = None
+    context: Optional[Dict[str, Any]] = None,
+    session_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Autonomous Azure error debugging and analysis tool.
@@ -155,6 +156,8 @@ async def debug_error_tool(
         context (dict, optional): Additional context including:
             - source_files: List of source files with path, content, relevance, size_bytes
             - environment_info: Environment details like azure_subscription, resource_group, technologies
+        session_id (str, optional): Existing session ID to continue analysis. If provided, 
+            continues existing session instead of creating a new one.
     
     Returns:
         Dict[str, Any]: Debugging result containing:
@@ -188,11 +191,15 @@ async def debug_error_tool(
         ... )
         >>> print(f"Status: {result['status']}, Message: {result['message']}")
     """
-    # Generate unique trace ID for this debugging session
-    trace_id = str(uuid.uuid4())
-    start_time = time.time()
+    # Handle session ID for new or continuing sessions
+    if session_id:
+        trace_id = session_id
+        logger.info(f"Continuing debug_error analysis - session_id: {trace_id}")
+    else:
+        trace_id = str(uuid.uuid4())
+        logger.info(f"Starting new debug_error analysis - trace_id: {trace_id}")
     
-    logger.info(f"Starting debug_error analysis - trace_id: {trace_id}")
+    start_time = time.time()
     
     try:
         # Step 1: Input Validation
@@ -267,14 +274,26 @@ async def debug_error_tool(
         logger.info(f"[{trace_id}] Filtering sensitive information from context")
         filtered_context = SensitiveDataFilter.filter_sensitive_data(context) if context else {}
         
-        # Step 4: Create debugging session
-        logger.info(f"[{trace_id}] Creating debugging session")
-        session = session_manager.create_session(
-            user_principal_name=user_principal_name,
-            error_description=error_description,
-            context=filtered_context,
-            trace_id=trace_id
-        )
+        # Step 4: Create or get debugging session
+        if session_id:
+            logger.info(f"[{trace_id}] Retrieving existing debugging session")
+            session = session_manager.get_session(trace_id)
+            if not session:
+                logger.error(f"[{trace_id}] Session not found for provided session_id")
+                return {
+                    "status": "fail",
+                    "trace_id": trace_id,
+                    "message": "Session not found. Please start a new debugging session.",
+                    "error": "SESSION_NOT_FOUND"
+                }
+        else:
+            logger.info(f"[{trace_id}] Creating new debugging session")
+            session = session_manager.create_session(
+                user_principal_name=user_principal_name,
+                error_description=error_description,
+                context=filtered_context,
+                trace_id=trace_id
+            )
         
         # Step 5: Extract subscription ID from context
         subscription_id = None

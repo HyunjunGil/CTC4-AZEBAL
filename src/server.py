@@ -136,7 +136,8 @@ def create_mcp_server(disable_logs: bool = False) -> FastMCP:
     async def debug_error(
         azebal_token: str,
         error_description: str,
-        context: dict = None
+        context: dict = None,
+        session_id: str = None
     ) -> dict:
         """
         Autonomous Azure error debugging and analysis tool.
@@ -150,6 +151,8 @@ def create_mcp_server(disable_logs: bool = False) -> FastMCP:
             context (dict, optional): Additional context including:
                 - source_files: List of source files with path, content, relevance, size_bytes
                 - environment_info: Environment details like azure_subscription, resource_group, technologies
+            session_id (str, optional): Existing session ID to continue analysis. If provided, 
+                continues existing session instead of creating a new one.
         
         Returns:
             dict: Debugging result containing:
@@ -182,7 +185,7 @@ def create_mcp_server(disable_logs: bool = False) -> FastMCP:
                 }
             )
         """
-        return await debug_error_tool(azebal_token, error_description, context)
+        return await debug_error_tool(azebal_token, error_description, context, session_id)
 
     return mcp
 

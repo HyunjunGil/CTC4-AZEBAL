@@ -235,36 +235,6 @@ class SessionManager:
             
             return session
     
-    def get_or_create_session(
-        self,
-        trace_id: str,
-        user_principal_name: str = "",
-        error_description: str = "",
-        context: Optional[Dict[str, Any]] = None
-    ) -> DebugSession:
-        """
-        Get existing session or create new one.
-        
-        Args:
-            trace_id: Session trace ID
-            user_principal_name: User identifier (for new sessions)
-            error_description: Error description (for new sessions)
-            context: Context (for new sessions)
-        
-        Returns:
-            DebugSession: Existing or new session
-        """
-        session = self.get_session(trace_id)
-        if session:
-            return session
-        
-        return self.create_session(
-            user_principal_name=user_principal_name,
-            error_description=error_description,
-            context=context or {},
-            trace_id=trace_id
-        )
-    
     def delete_session(self, trace_id: str) -> bool:
         """
         Delete a session.
