@@ -69,3 +69,81 @@ class AnthropicService(LLMInterface):
         )
         
         return response.content[0].text
+    
+    async def _call_llm_with_functions(
+        self, 
+        messages: list, 
+        functions: list, 
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Call Anthropic Claude API with function calling support.
+        
+        Note: Anthropic uses "tools" instead of "functions" but we'll adapt the interface.
+        
+        Args:
+            messages: List of conversation messages
+            functions: List of function definitions
+            **kwargs: Additional parameters (max_tokens, temperature, etc.)
+            
+        Returns:
+            Dict containing the LLM response with potential function calls
+            
+        Raises:
+            Exception: If the API call fails
+        """
+        # Convert function definitions to Anthropic tools format
+        tools = []
+        for func in functions:
+            tools.append({
+                "name": func["name"],
+                "description": func["description"],
+                "input_schema": func["parameters"]
+            })
+        
+        # Convert messages to Anthropic format
+        anthropic_messages = []
+        for msg in messages:
+            if msg["role"] == "system":
+                # Anthropic handles system messages differently
+                anthropic_messages.append({
+                    "role": "user",
+                    "content": f"System: {msg['content']}"
+                })
+            elif msg["role"] == "function":
+                # Anthropic uses tool_result for function responses
+                anthropic_messages.append({
+                    "role": "user",
+                    "content": f"Function {msg['name']} result: {msg['content']}"
+                })
+            else:
+                anthropic_messages.append(msg)
+        
+        response = self.client.messages.create(
+            model=kwargs.get("model", self.model_name),
+            max_tokens=kwargs.get("max_tokens", 1000),
+            temperature=kwargs.get("temperature", 0.7),
+            messages=anthropic_messages,
+            tools=tools,
+            tool_choice={"type": "auto"}  # Let the model decide when to use tools
+        )
+        
+        # Check if the model wants to use a tool
+        if response.content and response.content[0].type == "tool_use":
+            tool_use = response.content[0]
+            return {
+                "function_call": {
+                    "name": tool_use.name,
+                    "arguments": tool_use.input
+                }
+            }
+        else:
+            # Extract text content
+            text_content = ""
+            for content in response.content:
+                if content.type == "text":
+                    text_content += content.text
+            
+            return {
+                "content": text_content
+            }

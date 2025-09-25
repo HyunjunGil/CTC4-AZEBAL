@@ -69,3 +69,56 @@ class OpenAIService(LLMInterface):
         )
         
         return response.choices[0].message.content
+    
+    async def _call_llm_with_functions(
+        self, 
+        messages: list, 
+        functions: list, 
+        **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Call OpenAI API with function calling support.
+        
+        Args:
+            messages: List of conversation messages
+            functions: List of function definitions
+            **kwargs: Additional parameters (max_tokens, temperature, etc.)
+            
+        Returns:
+            Dict containing the LLM response with potential function calls
+            
+        Raises:
+            Exception: If the API call fails
+        """
+        # Prepare function definitions for OpenAI
+        function_definitions = []
+        for func in functions:
+            function_definitions.append({
+                "name": func["name"],
+                "description": func["description"],
+                "parameters": func["parameters"]
+            })
+        
+        response = self.client.chat.completions.create(
+            model=kwargs.get("model", self.model_name),
+            messages=messages,
+            functions=function_definitions,
+            function_call="auto",  # Let the model decide when to call functions
+            max_tokens=kwargs.get("max_tokens", 1000),
+            temperature=kwargs.get("temperature", 0.7)
+        )
+        
+        message = response.choices[0].message
+        
+        # Check if the model wants to call a function
+        if message.function_call:
+            return {
+                "function_call": {
+                    "name": message.function_call.name,
+                    "arguments": message.function_call.arguments
+                }
+            }
+        else:
+            return {
+                "content": message.content
+            }

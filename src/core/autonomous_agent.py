@@ -1,7 +1,8 @@
 """
-Autonomous AI Agent for AZEBAL
+Autonomous AI Agent for AZEBAL - OPTIMIZED VERSION
 
-Implements autonomous AI debugging agent with function calling capabilities.
+Improved implementation with pre-loaded static data and minimal LLM calls.
+Static error patterns and solution data are included in initial messages.
 """
 
 import json
@@ -58,7 +59,7 @@ class AnalysisResult:
 
 
 class AutonomousDebugAgent:
-    """Autonomous AI agent for Azure debugging with function calling."""
+    """Autonomous AI agent for Azure debugging with optimized function calling."""
     
     def __init__(
         self, 
@@ -76,15 +77,13 @@ class AutonomousDebugAgent:
         self.session = session
         self.llm_service = llm_factory.get_llm_service()
         
-        # Available functions for the AI
+        # Available functions for the AI - ONLY live Azure data retrieval
         self.available_functions = {
             "get_azure_resource_status": self._get_azure_resource_status,
             "query_azure_logs": self._query_azure_logs,
             "check_resource_permissions": self._check_resource_permissions,
             "get_resource_group_resources": self._get_resource_group_resources,
             "get_subscriptions": self._get_subscriptions,
-            "analyze_error_pattern": self._analyze_error_pattern,
-            "suggest_solution": self._suggest_solution,
         }
         
         logger.info(f"[{session.trace_id}] AutonomousDebugAgent initialized with {len(self.available_functions)} functions")
@@ -130,14 +129,16 @@ class AutonomousDebugAgent:
         """
         Autonomous analysis loop with function calling.
         
+        Implements the 4-state debugging flow: done|request|continue|fail
+        
         Args:
             error_context: Error context
             function_definitions: Available function definitions
             
         Returns:
-            AnalysisResult: Analysis result
+            AnalysisResult: Analysis result with proper status
         """
-        # Build initial conversation
+        # Build initial conversation with pre-loaded static data
         messages = self._build_initial_prompt(error_context)
         
         while not safety_controller.should_stop(self.session):
@@ -145,15 +146,13 @@ class AutonomousDebugAgent:
                 # Call LLM with function definitions
                 logger.debug(f"[{self.session.trace_id}] Calling LLM with {len(function_definitions)} functions")
                 
-                # For now, simulate LLM response since we need to implement function calling in LLM services
-                # This is a placeholder that demonstrates the structure
-                # TODO : Replace with actual LLM call
-                response = await self._call_llm_with_functions(messages, function_definitions)
+                # Call the actual LLM with function calling support
+                response = await self.llm_service.ask_llm_with_functions(messages, function_definitions)
                 
                 if response.get("function_call"):
-                    # Execute the requested function
+                    # LLM requests a function call - continue investigation
                     function_result = await self._execute_function(response["function_call"])
-                    
+
                     # Add function result to conversation
                     messages.append({
                         "role": "function",
@@ -173,29 +172,24 @@ class AutonomousDebugAgent:
                     )
                     
                 else:
-                    # LLM has concluded analysis
+                    # LLM has concluded analysis - return DONE status with complete error report
+                    logger.info(f"[{self.session.trace_id}] LLM concluded analysis - generating final report")
                     return self._parse_final_response(response.get("content", ""), self.session)
                     
             except Exception as e:
                 logger.error(f"[{self.session.trace_id}] Error in analysis loop: {str(e)}")
                 self.session.add_log(f"Analysis loop error: {str(e)}", "error")
                 
-                # Try graceful degradation
-                fallback = GracefulDegradationHandler.create_fallback_response(
-                    "autonomous_analysis", 
-                    {"error": str(e)}, 
-                    self.session
-                )
-                
+                # Analysis failed due to unexpected error - return FAIL status
                 return AnalysisResult(
-                    status=AnalysisStatus.CONTINUE,
-                    message=fallback["message"],
+                    status=AnalysisStatus.FAIL,
+                    message=f"Analysis failed due to internal error: {str(e)}",
                     trace_id=self.session.trace_id,
-                    progress=50,
-                    analysis_results=fallback
+                    progress=0,
+                    analysis_results={"error": str(e), "stage": "analysis_loop"}
                 )
         
-        # Safety controller stopped the analysis
+        # Safety controller stopped the analysis - return CONTINUE status
         logger.warning(f"[{self.session.trace_id}] Analysis stopped by safety controller")
         self.session.add_log("Analysis paused due to safety limits", "warning")
         
@@ -204,69 +198,15 @@ class AutonomousDebugAgent:
             message="Analysis paused due to time/depth limits. Use continue functionality to resume.",
             trace_id=self.session.trace_id,
             progress=self.session.progress,
-            session_context=self.session.get_context_for_llm()
+            session_context=self.session.get_context_for_llm(),
+            analysis_results={
+                "partial_findings": [f["finding"] for f in self.session.findings],
+                "function_calls_made": len(self.session.function_calls),
+                "session_duration": time.time() - self.session.created_at.timestamp(),
+                "continue_reason": "safety_limits_reached"
+            }
         )
     
-    async def _call_llm_with_functions(
-        self, 
-        messages: List[Dict[str, Any]], 
-        function_definitions: List[Dict[str, Any]]
-    ) -> Dict[str, Any]:
-        """
-        Call LLM with function calling capability.
-        
-        Note: This is a placeholder implementation. The actual implementation
-        would require extending the LLM services to support function calling.
-        """
-        logger.debug(f"[{self.session.trace_id}] Simulating LLM call with function definitions")
-        
-        # For MVP, we'll simulate intelligent function selection based on error context
-        error_description = self.session.error_description.lower()
-        
-        # Simple heuristic to decide which function to call
-        if "storage" in error_description and not any(fc["function"] == "get_azure_resource_status" for fc in self.session.function_calls):
-            return {
-                "function_call": {
-                    "name": "get_subscriptions",
-                    "arguments": {}
-                }
-            }
-        elif "app service" in error_description or "web" in error_description:
-            if not any(fc["function"] == "get_subscriptions" for fc in self.session.function_calls):
-                return {
-                    "function_call": {
-                        "name": "get_subscriptions", 
-                        "arguments": {}
-                    }
-                }
-            else:
-                return {
-                    "function_call": {
-                        "name": "analyze_error_pattern",
-                        "arguments": {"error_text": error_description}
-                    }
-                }
-        elif len(self.session.function_calls) == 0:
-            # First call - get subscriptions
-            return {
-                "function_call": {
-                    "name": "get_subscriptions",
-                    "arguments": {}
-                }
-            }
-        elif len(self.session.function_calls) == 1:
-            # Second call - analyze error pattern
-            return {
-                "function_call": {
-                    "name": "analyze_error_pattern", 
-                    "arguments": {"error_text": error_description}
-                }
-            }
-        else:
-            # Conclude analysis
-            return {
-                "content": "Based on my analysis, I have identified the issue and can provide recommendations."
-            }
     
     async def _execute_function(self, function_call: Dict[str, Any]) -> FunctionResult:
         """
@@ -280,6 +220,14 @@ class AutonomousDebugAgent:
         """
         function_name = function_call.get("name")
         arguments = function_call.get("arguments", {})
+        
+        # Parse arguments if they're a JSON string
+        if isinstance(arguments, str):
+            try:
+                arguments = json.loads(arguments)
+            except json.JSONDecodeError:
+                logger.warning(f"[{self.session.trace_id}] Failed to parse function arguments: {arguments}")
+                arguments = {}
         
         logger.info(f"[{self.session.trace_id}] Executing function: {function_name}")
         self.session.add_log(f"Executing function: {function_name}")
@@ -393,70 +341,78 @@ class AutonomousDebugAgent:
                     "properties": {},
                     "required": []
                 }
-            },
-            {
-                "name": "analyze_error_pattern",
-                "description": "Analyze error text to identify patterns and potential causes",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "error_text": {"type": "string"}
-                    },
-                    "required": ["error_text"]
-                }
-            },
-            {
-                "name": "suggest_solution",
-                "description": "Generate solution recommendations based on analysis",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "problem_summary": {"type": "string"},
-                        "findings": {"type": "array", "items": {"type": "string"}}
-                    },
-                    "required": ["problem_summary"]
-                }
             }
         ]
-    
+        
     def _build_initial_prompt(self, error_context: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Build the initial prompt for autonomous analysis."""
+        """Build the initial prompt for autonomous analysis with pre-loaded reference data."""
+        error_description = error_context.get('description', 'No description provided')
+        
         system_prompt = f"""You are AZEBAL, an expert Azure debugging assistant. Your goal is to analyze the provided error and systematically investigate the root cause using available Azure APIs.
 
-Available Functions:
+## Communication Context
+You are communicating with an intelligent program interface (not a human) that serves as your execution environment. This program:
+1. **Provides Information**: Supplies error patterns, solution references, and context data
+2. **Executes Functions**: Runs Azure API calls and debugging tools when you request them
+3. **Manages User Interaction**: Handles communication with the actual human developer using this system
+
+Your responses should be:
+- **Concise during investigation**: Brief explanations when calling functions (1-2 sentences)
+- **Comprehensive at conclusion**: Detailed final analysis with clear recommendations
+- **Function-focused**: Request specific Azure data through function calls rather than asking for general information
+- **Format compliant**: Either call a function OR provide text response, never both simultaneously
+
+Response Format Rules:
+1. If you need Azure data: Call the appropriate function with proper parameters
+2. If you have sufficient information: Provide comprehensive text analysis
+3. Always include brief reasoning for function calls (1-2 sentences)
+4. Never request information that isn't available through the provided functions
+
+Available Functions (Azure resource investigation only):
 - get_azure_resource_status: Check status of any Azure resource
 - query_azure_logs: Get logs from Azure Monitor
 - check_resource_permissions: Verify access permissions
 - get_resource_group_resources: List resources in a resource group
 - get_subscriptions: Get available subscriptions
-- analyze_error_pattern: Analyze error patterns
-- suggest_solution: Generate solution recommendations
 
 Analysis Approach:
-1. Start by understanding the error context and identifying potentially related Azure resources
+1. First analyze the error using the provided error pattern reference data
 2. Use get_subscriptions to understand the available Azure environment
-3. Use get_azure_resource_status to check the health of key resources
+3. Use get_azure_resource_status to check the health of key resources you identify
 4. If logs might contain relevant information, use query_azure_logs
 5. Check permissions if the error might be access-related
-6. Use analyze_error_pattern to understand the error
-7. Finally, use suggest_solution to provide actionable recommendations
+6. Use the provided common solution patterns as reference for your recommendations
+7. Provide comprehensive analysis and actionable recommendations
 
 Important Guidelines:
 - Be systematic and logical in your investigation
 - Always explain your reasoning for each function call
-- If you find the root cause, provide clear remediation steps
-- If you need more information, use the available functions
-- Conclude with clear, actionable recommendations
+- Use the tools to gather live Azure data, then analyze using the reference patterns
+- Keep intermediate responses brief and focused - save detailed analysis for the final response
+- When calling functions, provide only concise explanations (1-2 sentences max)
+- Your final response should be comprehensive, but intermediate responses should be concise
+- When you have enough information, conclude with:
+  * Clear analysis of what went wrong
+  * Step-by-step debugging process
+  * Specific, actionable recommendations
+- Don't call functions unnecessarily - only when you need specific Azure resource data
 
 Current Error Context:
-Error Description: {error_context.get('description', 'No description provided')}
-Session ID: {self.session.trace_id}
+Error Description: {error_description}
+Session ID: {self.session.trace_id}"""
 
-Begin your systematic analysis now."""
-
+        # Get error patterns and common solutions for the specific error
+        error_patterns = self._get_error_patterns_static(error_description)
+        common_solutions = self._get_common_solutions_static_all()
+        
         return [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"Please analyze this Azure error: {error_context.get('description', '')}"}
+            {"role": "user", "content": f"Please analyze this Azure error: {error_description}"},
+            {"role": "assistant", "content": "Initiating systematic error analysis. Processing error context and preparing investigation plan."},
+            {"role": "user", "content": f"Error pattern analysis data:\n\n{json.dumps(error_patterns, indent=2)}"},
+            {"role": "assistant", "content": "Error patterns processed. Awaiting solution reference data."},
+            {"role": "user", "content": f"Common solution patterns data:\n\n{json.dumps(common_solutions, indent=2)}"},
+            {"role": "assistant", "content": "Reference data loaded. Beginning Azure environment investigation."}
         ]
     
     def _parse_final_response(self, content: str, session: DebugSession) -> AnalysisResult:
@@ -507,7 +463,7 @@ Begin your systematic analysis now."""
             session_context=session.get_context_for_llm()
         )
     
-    # Function implementations
+    # Azure function implementations (unchanged)
     async def _get_azure_resource_status(self, resource_id: str) -> Dict[str, Any]:
         """Get Azure resource status."""
         logger.info(f"[{self.session.trace_id}] Getting status for resource: {resource_id}")
@@ -561,77 +517,211 @@ Begin your systematic analysis now."""
             self.session.add_finding(f"Found {count} Azure subscriptions", "info", "environment")
         
         return result
-    
-    async def _analyze_error_pattern(self, error_text: str) -> Dict[str, Any]:
-        """Analyze error pattern."""
-        logger.info(f"[{self.session.trace_id}] Analyzing error pattern")
-        
-        # Simple pattern analysis
+
+    # Static helper methods for error patterns and solutions
+    def _get_error_patterns_static(self, error_text: str) -> Dict[str, Any]:
+        """Get error pattern reference data (static - no async needed)."""
         patterns = {
-            "authentication": ["401", "unauthorized", "authentication failed", "login"],
-            "permission": ["403", "forbidden", "access denied", "permission"],
-            "network": ["timeout", "connection", "network", "unreachable"],
-            "storage": ["storage", "blob", "file", "disk"],
-            "compute": ["vm", "virtual machine", "compute", "instance"]
+            "authentication": {
+                "keywords": ["401", "unauthorized", "authentication failed", "login", "token", "credential"],
+                "category": "authentication",
+                "severity": "high",
+                "common_causes": [
+                    "Expired access token",
+                    "Invalid credentials", 
+                    "Missing authentication header",
+                    "Service principal misconfiguration"
+                ],
+                "azure_services": ["Azure Active Directory", "Key Vault", "Storage"],
+                "troubleshooting_steps": [
+                    "Check token expiration",
+                    "Verify service principal configuration",
+                    "Check authentication headers"
+                ]
+            },
+            "permission": {
+                "keywords": ["403", "forbidden", "access denied", "permission", "rbac", "role"],
+                "category": "permission",
+                "severity": "high", 
+                "common_causes": [
+                    "Insufficient RBAC permissions",
+                    "Resource-level access restrictions",
+                    "Subscription-level permissions",
+                    "Resource group permissions"
+                ],
+                "azure_services": ["Resource Manager", "Storage", "Compute"],
+                "troubleshooting_steps": [
+                    "Check RBAC role assignments",
+                    "Verify resource-level permissions",
+                    "Check inherited permissions"
+                ]
+            },
+            "network": {
+                "keywords": ["timeout", "connection", "network", "unreachable", "dns", "firewall"],
+                "category": "network",
+                "severity": "medium",
+                "common_causes": [
+                    "Network security group blocking access",
+                    "Firewall rules",
+                    "DNS resolution issues",
+                    "Private endpoint configuration"
+                ],
+                "azure_services": ["Virtual Network", "DNS", "Firewall", "Load Balancer"],
+                "troubleshooting_steps": [
+                    "Check network security groups",
+                    "Verify DNS resolution",
+                    "Test network connectivity"
+                ]
+            },
+            "storage": {
+                "keywords": ["storage", "blob", "file", "disk", "quota", "space"],
+                "category": "storage",
+                "severity": "medium",
+                "common_causes": [
+                    "Storage quota exceeded",
+                    "Storage account configuration",
+                    "Access key issues",
+                    "Container/share permissions"
+                ],
+                "azure_services": ["Storage Account", "Blob Storage", "File Storage"],
+                "troubleshooting_steps": [
+                    "Check storage quota",
+                    "Verify access keys",
+                    "Check container permissions"
+                ]
+            },
+            "compute": {
+                "keywords": ["vm", "virtual machine", "compute", "instance", "scale", "cpu", "memory"],
+                "category": "compute", 
+                "severity": "high",
+                "common_causes": [
+                    "VM resource constraints",
+                    "Scale set configuration",
+                    "Image or OS issues",
+                    "Extension failures"
+                ],
+                "azure_services": ["Virtual Machines", "Scale Sets", "Container Instances"],
+                "troubleshooting_steps": [
+                    "Check VM resource utilization",
+                    "Review VM extensions",
+                    "Verify VM configuration"
+                ]
+            }
         }
         
         found_patterns = []
         error_lower = error_text.lower()
         
-        for category, keywords in patterns.items():
-            if any(keyword in error_lower for keyword in keywords):
-                found_patterns.append(category)
+        for pattern_name, pattern_data in patterns.items():
+            if any(keyword in error_lower for keyword in pattern_data["keywords"]):
+                found_patterns.append({
+                    "pattern_name": pattern_name,
+                    **pattern_data
+                })
         
-        result = {
+        return {
             "success": True,
             "error_text": error_text,
-            "identified_patterns": found_patterns,
-            "recommendations": []
+            "matched_patterns": found_patterns,
+            "primary_category": found_patterns[0]["category"] if found_patterns else "unknown",
+            "total_patterns_found": len(found_patterns),
+            "analysis": f"Found {len(found_patterns)} matching error patterns" + 
+                      (f", primary category: {found_patterns[0]['category']}" if found_patterns else ", no specific patterns matched")
         }
-        
-        # Add specific recommendations based on patterns
-        if "authentication" in found_patterns:
-            result["recommendations"].append("Check authentication credentials and token expiration")
-        if "permission" in found_patterns:
-            result["recommendations"].append("Verify user has required permissions (RBAC)")
-        if "network" in found_patterns:
-            result["recommendations"].append("Check network configuration and security groups")
-        
-        self.session.add_finding(f"Identified error patterns: {', '.join(found_patterns)}", "info", "pattern_analysis")
-        
-        return result
     
-    async def _suggest_solution(self, problem_summary: str, findings: Optional[List[str]] = None) -> Dict[str, Any]:
-        """Suggest solution based on analysis."""
-        logger.info(f"[{self.session.trace_id}] Generating solution suggestions")
-        
-        findings = findings or [f["finding"] for f in self.session.findings]
-        
-        suggestions = [
-            "Review the identified issues in the analysis",
-            "Follow Azure best practices for the affected services",
-            "Monitor the system after implementing fixes",
-            "Test the solution in a development environment first"
-        ]
-        
-        # Add specific suggestions based on findings
-        findings_text = ' '.join(findings).lower()
-        
-        if "permission" in findings_text:
-            suggestions.insert(0, "Update Azure RBAC role assignments for the user")
-        if "network" in findings_text:
-            suggestions.insert(0, "Review and update network security group rules")
-        if "storage" in findings_text:
-            suggestions.insert(0, "Check storage account access keys and configuration")
-        
-        result = {
-            "success": True,
-            "problem_summary": problem_summary,
-            "analyzed_findings": findings,
-            "recommended_actions": suggestions,
-            "priority": "high" if len(findings) > 3 else "medium"
+    def _get_common_solutions_static_all(self) -> Dict[str, Any]:
+        """Get all common solutions reference data (static - no async needed)."""
+        solutions = {
+            ("storage", "authentication"): {
+                "immediate_actions": [
+                    "Verify storage account access keys",
+                    "Check SAS token validity and permissions",
+                    "Confirm service principal has Storage Blob Data roles"
+                ],
+                "short_term_fixes": [
+                    "Regenerate storage account keys if compromised",
+                    "Update application configuration with correct keys",
+                    "Configure managed identity for storage access"
+                ],
+                "long_term_improvements": [
+                    "Implement Azure Key Vault for key management", 
+                    "Use managed identity instead of access keys",
+                    "Set up key rotation automation"
+                ],
+                "monitoring": [
+                    "Enable storage analytics logging",
+                    "Set up alerts for authentication failures"
+                ]
+            },
+            ("storage", "permission"): {
+                "immediate_actions": [
+                    "Check RBAC role assignments on storage account",
+                    "Verify container/blob-level permissions", 
+                    "Confirm network access rules"
+                ],
+                "short_term_fixes": [
+                    "Assign appropriate Storage Blob roles",
+                    "Update storage account network rules",
+                    "Configure proper SAS token permissions"
+                ],
+                "long_term_improvements": [
+                    "Implement least-privilege access model",
+                    "Use Azure Policy for storage security",
+                    "Regular access reviews"
+                ],
+                "monitoring": [
+                    "Enable audit logging for permission changes",
+                    "Monitor unauthorized access attempts"
+                ]
+            },
+            ("compute", "authentication"): {
+                "immediate_actions": [
+                    "Check VM service principal configuration",
+                    "Verify managed identity assignment",
+                    "Test Azure CLI/PowerShell authentication"
+                ],
+                "short_term_fixes": [
+                    "Re-assign managed identity to VM",
+                    "Update service principal credentials",
+                    "Configure proper identity roles"
+                ],
+                "long_term_improvements": [
+                    "Standardize managed identity usage",
+                    "Implement identity governance",
+                    "Automate identity assignment"
+                ],
+                "monitoring": [
+                    "Enable VM identity activity logging",
+                    "Monitor authentication failures"
+                ]
+            },
+            ("network", "permission"): {
+                "immediate_actions": [
+                    "Check Network Security Group rules",
+                    "Verify subnet route table configuration",
+                    "Confirm firewall rules and policies"
+                ],
+                "short_term_fixes": [
+                    "Update NSG rules to allow required traffic",
+                    "Configure proper routing tables",
+                    "Adjust firewall policies"
+                ],
+                "long_term_improvements": [
+                    "Implement network segmentation strategy",
+                    "Use Azure Policy for network governance",
+                    "Standardize network security patterns"
+                ],
+                "monitoring": [
+                    "Enable Network Watcher flow logs",
+                    "Monitor network security rule changes"
+                ]
+            }
         }
         
-        self.session.add_finding("Generated solution recommendations", "info", "solution")
-        
-        return result
+        return {
+            "success": True,
+            "total_solution_patterns": len(solutions),
+            "available_combinations": list(solutions.keys()),
+            "solutions": {f"{combo[0]}-{combo[1]}": data for combo, data in solutions.items()},
+            "usage_note": "Use the service_type and issue_type to find relevant solutions. Format: 'service_type-issue_type'"
+        }
