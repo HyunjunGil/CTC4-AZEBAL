@@ -35,6 +35,41 @@ class Settings(BaseSettings):
     log_level: str = Field(default="INFO", description="Logging level")
     secure_logging: bool = Field(default=False, description="Enable secure logging mode")
 
+    # LLM Provider Configuration
+    llm_provider: Optional[str] = Field(
+        default=None, description="LLM provider to use (azure_openai, openai, anthropic). Auto-detect if not set."
+    )
+    
+    # Azure OpenAI Configuration
+    azure_openai_endpoint: Optional[str] = Field(
+        default=None, description="Azure OpenAI service endpoint"
+    )
+    azure_openai_api_key: Optional[str] = Field(
+        default=None, description="Azure OpenAI API key"
+    )
+    azure_openai_api_version: str = Field(
+        default="2024-02-15-preview", description="Azure OpenAI API version"
+    )
+    azure_openai_deployment_name: str = Field(
+        default="gpt-4", description="Azure OpenAI deployment name"
+    )
+    
+    # OpenAI Configuration
+    openai_api_key: Optional[str] = Field(
+        default=None, description="OpenAI API key"
+    )
+    openai_model_name: str = Field(
+        default="gpt-4", description="OpenAI model name"
+    )
+    
+    # Anthropic Configuration
+    anthropic_api_key: Optional[str] = Field(
+        default=None, description="Anthropic API key"
+    )
+    anthropic_model_name: str = Field(
+        default="claude-sonnet-4-20250514", description="Anthropic model name"
+    )
+
     # MCP Server Configuration
     mcp_port: int = Field(default=8443, description="MCP server port")
     mcp_http_port: int = Field(default=8000, description="MCP HTTP server port")

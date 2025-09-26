@@ -111,9 +111,9 @@ def login_tool(azure_access_token: str) -> Dict[str, Any]:
                 "error": "INVALID_TOKEN",
             }
 
-        # Create AZEBAL JWT token
+        # Create AZEBAL JWT token with Azure access token
         try:
-            azebal_token = jwt_service.create_token(user_info)
+            azebal_token = jwt_service.create_token(user_info, azure_access_token)
             
             logger.info(f"Login successful for user: {user_info.user_principal_name} (token: {token_hash})")
 

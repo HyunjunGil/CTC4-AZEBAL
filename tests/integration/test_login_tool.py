@@ -51,7 +51,7 @@ class TestLoginTool:
         
         # Verify service calls
         mock_auth_service.authenticate_user.assert_called_once_with("test-azure-token")
-        mock_jwt_service.create_token.assert_called_once_with(mock_user_info)
+        mock_jwt_service.create_token.assert_called_once_with(mock_user_info, "test-azure-token")
     
     @patch('src.tools.login.AzureAuthService')
     def test_login_authentication_fails(self, mock_auth_service_class):
@@ -110,7 +110,7 @@ class TestLoginTool:
         
         # Verify service calls
         mock_auth_service.authenticate_user.assert_called_once_with("test-azure-token")
-        mock_jwt_service.create_token.assert_called_once_with(mock_user_info)
+        mock_jwt_service.create_token.assert_called_once_with(mock_user_info, "test-azure-token")
     
     @patch('src.tools.login.AzureAuthService')
     def test_login_unexpected_error(self, mock_auth_service_class):
