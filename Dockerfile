@@ -11,22 +11,16 @@ ENV PYTHONUNBUFFERED=1
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     curl \
+    default-libmysqlclient-dev \
+    pkg-config \
+    gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies
-COPY environment.yml .
+# Copy requirements file
+COPY requirements.txt .
 
-# Extract pip dependencies from environment.yml and install them
-RUN pip install \
-    fastmcp \
-    uvicorn \
-    click \
-    structlog \
-    pytest \
-    pytest-asyncio \
-    pytest-mock \
-    pytest-cov \
-    requests
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the entire project
 COPY . .

@@ -1,0 +1,56 @@
+# Core Dependencies
+fastmcp
+uvicorn[standard]>=0.24.0
+click>=8.1.0
+structlog>=23.0.0
+
+# Web Framework & HTTP
+fastapi>=0.104.0
+httpx>=0.25.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# Azure SDK
+azure-identity>=1.15.0
+azure-mgmt-resource>=23.0.0
+azure-mgmt-compute>=30.0.0
+azure-mgmt-network>=25.0.0
+azure-mgmt-storage>=21.0.0
+azure-mgmt-containerregistry>=10.0.0
+azure-mgmt-containerinstance>=10.0.0
+azure-mgmt-web>=7.0.0
+
+# OpenAI Integration
+openai>=1.0.0
+
+# Security & Authentication
+cryptography>=41.0.0
+PyJWT>=2.8.0
+python-multipart
+
+# # Database Connectors
+# mariadb>=1.1.8
+# psycopg2-binary>=2.9.0
+# SQLAlchemy>=2.0.0
+# alembic>=1.12.0
+
+# Configuration & Environment
+python-dotenv>=1.0.0
+
+# Utilities
+tenacity>=8.2.0
+
+# Testing
+pytest>=8.0
+pytest-cov
+pytest-asyncio
+pytest-mock
+
+# Development Tools (optional - can be in requirements-dev.txt)
+# black
+# flake8
+# mypy
+# isort
+# pre-commit>=3.5.0
+# safety>=2.3.0
+# bandit>=1.7.0

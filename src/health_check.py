@@ -12,28 +12,27 @@ import argparse
 def check_health(host: str = "localhost", port: int = 8000) -> bool:
     """
     Check if the AZEBAL MCP server is responding.
-    
+
     Args:
         host: Server host
         port: Server port
-        
+
     Returns:
         bool: True if server is healthy, False otherwise
     """
     try:
         # Try to connect to the AZEBAL MCP endpoint with proper MCP headers
         headers = {
-            'Accept': 'application/json, text/event-stream',
-            'Content-Type': 'application/json'
+            "Accept": "application/json, text/event-stream",
+            "Content-Type": "application/json",
         }
-        response = requests.get(f"http://{host}:{port}/azebal/mcp", 
-                              headers=headers, timeout=5)
-        
+        response = requests.get(f"http://{host}:{port}/azebal/mcp", headers=headers, timeout=5)
+
         # For MCP streamable-http, we expect either:
         # - 200 OK (if session is properly established)
         # - 400 Bad Request with "Missing session ID" (server is running but needs session)
         # - 406 Not Acceptable (wrong headers - server not running properly)
-        
+
         if response.status_code == 200:
             return True
         elif response.status_code == 400:
@@ -47,7 +46,7 @@ def check_health(host: str = "localhost", port: int = 8000) -> bool:
         elif response.status_code == 406:
             # Wrong headers - server might not be running properly
             return False
-            
+
         return False
     except Exception as e:
         print(f"Health check failed: {e}")
@@ -59,9 +58,9 @@ def main():
     parser = argparse.ArgumentParser(description="Health check for AZEBAL MCP server")
     parser.add_argument("--host", default="localhost", help="Server host")
     parser.add_argument("--port", type=int, default=8000, help="Server port")
-    
+
     args = parser.parse_args()
-    
+
     if check_health(args.host, args.port):
         print("✅ AZEBAL MCP server is healthy")
         sys.exit(0)

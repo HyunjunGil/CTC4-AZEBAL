@@ -20,7 +20,8 @@ try:
     
     def main():
         """Main entry point for the MCP server."""
-        server = create_mcp_server()
+        # Create and run server with logging disabled for clean stdio communication
+        server = create_mcp_server(disable_logs=True)
         server.run()
     
     if __name__ == "__main__":
